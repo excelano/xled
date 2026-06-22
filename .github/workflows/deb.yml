@@ -1,0 +1,53 @@
+name: deb
+
+# Build .deb packages and attach them to an existing GitHub release.
+#
+# Triggers:
+# - `release: published` -- ideally fires automatically after cargo-dist
+#   (release.yml) creates the release. CAVEAT: when cargo-dist creates the
+#   release using the default GITHUB_TOKEN, GitHub does not fire `release:
+#   published` for that creation -- this is a documented GHA safeguard
+#   against workflow recursion. So in practice this trigger only fires when
+#   the release is created by a non-GITHUB_TOKEN actor (manual UI, PAT, etc).
+# - `workflow_dispatch` -- the fallback that actually works after a
+#   cargo-dist release. Run it manually with:
+#     gh workflow run deb.yml -f tag=v<x.y.z>
+#   Or trigger from the GitHub UI under the Actions tab.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build .debs for (e.g., v0.1.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: install cargo-deb
+        run: cargo install cargo-deb --locked
+      - name: build .deb
+        run: cargo deb
+      - name: upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.event.release.tag_name || inputs.tag }}" target/debian/*.deb

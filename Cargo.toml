@@ -1,0 +1,39 @@
+[package]
+name = "xled"
+version = "0.1.0"
+edition = "2021"
+description = "sed and awk for tabular data — regex transforms over Excel-style ranges on CSV/DSV"
+license = "MIT"
+authors = ["David M. Anderson"]
+repository = "https://github.com/excelano/xled"
+readme = "README.md"
+keywords = ["csv", "sed", "awk", "tabular", "regex"]
+categories = ["command-line-utilities", "text-processing"]
+
+[dependencies]
+regex = "1"
+csv = "1"
+clap = { version = "4", features = ["derive"] }
+rustyline = "14"
+
+[package.metadata.deb]
+maintainer = "David M. Anderson <david.anderson@excelano.com>"
+extended-description = """
+xled is sed and awk for tabular data: awk's field model, sed's s/// substitution,
+and ed's live in-memory buffer, applied to Excel-style ranges over CSV and DSV
+files. It is stringly-typed with explicit casts (leading zeros and long IDs stay
+intact), never reshapes the table, and previews every edit before you commit.
+Query, join, and aggregate are out of scope by design — that is xql's job."""
+section = "utils"
+priority = "optional"
+depends = "libc6, libgcc-s1"
+assets = [
+    ["target/release/xled", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/xled/README.md", "644"],
+    ["LICENSE", "usr/share/doc/xled/copyright", "644"],
+]
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

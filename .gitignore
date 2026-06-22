@@ -1,0 +1,8 @@
+/target
+
+# Real client corpus must never enter this repo. It lives out-of-repo in
+# ~/xled-corpus/ and on the host-extra mount. These guards are belt-and-suspenders;
+# nothing real should ever be copied here in the first place.
+/corpus
+*.xlsx
+CORPUS-FINDINGS.md

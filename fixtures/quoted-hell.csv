@@ -1,0 +1,7 @@
+id,customer,address,note
+1,"Smith, John","123 Main St, Apt 4B, Springfield","Called re: order. Said ""too slow"" — follow up."
+2,"O'Brien, Bob","45 Oak Ave","Multi-line
+note here
+spanning three lines"
+3,"Diaz, Carol","99 Pine Rd, Unit 7","Quote ""inside quotes"" and, commas, everywhere"
+4,Park & Co,1 Park Pl,Simple note

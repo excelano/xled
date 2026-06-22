@@ -1,0 +1,6 @@
+name,role,dept
+Alice,Engineer,R&D
+Bob,Manager
+Carol,,Sales,Extra,Fields
+Dave
+Eve,Analyst,Finance,

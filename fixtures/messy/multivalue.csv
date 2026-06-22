@@ -1,0 +1,6 @@
+Vendor,Application,Contract IDs,Amount
+Acme,Acme CRM,"100-A
+100-B
+100-C","$1,200.00
+$39.50"
+Globex,Globex Billing,200-X,$745.00

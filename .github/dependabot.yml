@@ -1,0 +1,36 @@
+# Dependabot keeps Cargo and GitHub Actions dependencies current so security
+# fixes show up as PRs rather than slipping past.
+#
+# Each ecosystem's bumps are grouped into a single weekly PR so they share one
+# lockfile change instead of stacking conflicting updates.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      cargo:
+        patterns:
+          - "*"
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"
+    # actions/upload-artifact and actions/download-artifact are pinned by
+    # cargo-dist's generated release.yml. Bumping them independently breaks the
+    # plan job. Update cargo-dist itself in dist-workspace.toml to pick up newer
+    # artifact-action versions through that channel.
+    ignore:
+      - dependency-name: "actions/upload-artifact"
+      - dependency-name: "actions/download-artifact"

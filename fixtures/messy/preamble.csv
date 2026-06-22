@@ -1,0 +1,10 @@
+Application Risk Log,,,,
+Project: Portfolio Rationalization,,,,
+Owner: A. Chen,,,,
+,,,,
+ID,Application,Risk,Likelihood,Impact
+R1,Acme CRM,Vendor end-of-life,High,High
+R2,Globex Billing,Data migration gap,Medium,High
+R3,Initech HR,License overage,Low,Medium
+,,,,
+,,,,

@@ -1,0 +1,9 @@
+Department,IT Spend ($M),Apps,Redundancy %
+City Parks,12.5,40,0.06
+Metro Water,8.0,28,0.05
+Public Library,3.2,15,0.08
+Total,23.7,83,
+,,,
+Domain,Duplicate Tools,Primary Vendor,Est. Waste ($M)
+Ticketing,3,Acme,0.4
+GIS,2,Globex,0.3

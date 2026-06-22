@@ -1,0 +1,8 @@
+app_name,owner,annual_cost,status,last_reviewed,criticality
+SAP ERP,Finance Dept,"$1,250,000",Active,2024-03-15,High
+Legacy CRM,j.smith@corp.com,"$89,500",active,03/15/2024,high
+TimeTracker,IT Operations ,$12000,IN USE,2024-01-02,Medium
+Payroll Gateway,HR,"$45,000.00",Active ,15-Mar-2024,High
+DocVault,,$5500,Retired,2023-11-30,Low
+FleetManager,Ops Team,$0,unknown,,medium
+QA Sandbox,dev-team,$0.00,active,2024/02/28,LOW

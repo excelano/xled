@@ -36,6 +36,14 @@ The installer downloads the right tarball for your platform from the GitHub rele
 
 To uninstall, remove the binary: `rm ~/.cargo/bin/xled`.
 
+### With cargo
+
+If you have a Rust toolchain, install the published crate from [crates.io](https://crates.io/crates/xled). This compiles from source rather than fetching a prebuilt binary, so it is slower than the installer above but needs nothing else:
+
+```sh
+cargo install xled
+```
+
 ### Debian and Ubuntu
 
 Install from the [Excelano apt repository](https://excelano.com/apt/), so `apt upgrade` keeps it current:

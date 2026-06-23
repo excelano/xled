@@ -2,7 +2,7 @@
 
 xled brings the muscle memory of `sed` and `awk` to CSV and DSV files. It borrows awk's field model, sed's `s///` substitution, and ed's live in-memory buffer, and points all three at Excel-style ranges: a column by letter or name, a row span, a rectangle, a regex-selected set of cells. You address part of the table, you give it a command, and it shows you the result before anything is written.
 
-**Project page:** [https://excelano.com/xled/](https://excelano.com/xled/)
+**Project page:** [https://excelano.com/xled/](https://excelano.com/xled/) · **Tutorial:** [an introduction](https://excelano.com/xled/tutorial/)
 
 ```sh
 # strip the currency formatting from the price column, in place

@@ -156,6 +156,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "encsniff"
+version = "0.1.0"
+
+[[package]]
 name = "endian-type"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -534,6 +538,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "csv",
+ "encsniff",
  "regex",
  "rustyline",
 ]

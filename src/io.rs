@@ -38,9 +38,29 @@ pub fn read_str(data: &str, delim: u8, has_header: bool) -> Result<Buffer> {
 
 /// Read a file, choosing the delimiter from its extension unless one is given.
 pub fn read_file(path: &str, delim: Option<u8>, has_header: bool) -> Result<Buffer> {
+    sniff_and_warn(path);
     let data = std::fs::read_to_string(path)?;
+    // UTF-8 BOM from Excel "Save as CSV UTF-8" — strip it so the first column
+    // name doesn't carry a U+FEFF character.
+    let trimmed = data.strip_prefix('\u{FEFF}').unwrap_or(&data);
     let delim = delim.unwrap_or_else(|| default_delim(path));
-    read_str(&data, delim, has_header)
+    read_str(trimmed, delim, has_header)
+}
+
+/// Sniff the file head for non-UTF-8 encodings and emit a one-line iconv hint
+/// when warranted. Sniff failures are silently ignored — the downstream read
+/// will surface a clearer error if the file is really unreadable.
+fn sniff_and_warn(path: &str) {
+    let Ok(s) = encsniff::sniff_file(path) else { return };
+    if s.action != encsniff::Action::Warn {
+        return;
+    }
+    if let Some(enc) = s.encoding {
+        eprintln!("warning: {path} appears to be {enc} encoded.");
+        if let Some(hint) = &s.hint {
+            eprintln!("hint: {hint}");
+        }
+    }
 }
 
 /// `\t` for `.tsv`, otherwise `,`.

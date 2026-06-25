@@ -158,7 +158,8 @@ dependencies = [
 [[package]]
 name = "encsniff"
 version = "0.1.0"
-source = "git+https://github.com/excelano/encsniff?tag=v0.1.0#9ef8f97f1ca51624a76a99eae53bdbc31865a349"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcbef2fac7ceab06754546cea8cc18bc738feaac016344995c87c48ff400bb60"
 
 [[package]]
 name = "endian-type"

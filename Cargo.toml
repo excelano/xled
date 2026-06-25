@@ -16,7 +16,7 @@ regex = "1"
 csv = "1"
 clap = { version = "4", features = ["derive"] }
 rustyline = "14"
-encsniff = { git = "https://github.com/excelano/encsniff", tag = "v0.1.0" }
+encsniff = "0.1.0"
 
 [package.metadata.deb]
 maintainer = "David M. Anderson <david.anderson@excelano.com>"

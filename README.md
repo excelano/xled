@@ -129,6 +129,10 @@ The library is `num bool len left right mid substr round default coalesce if`. C
 
 Numbers serialize at full `f64` precision, so any currency or fixed-decimal column must be wrapped in `round(…, d)`; xled never rounds on write, because inventing precision the user didn't ask for is the same betrayal as silent coercion.
 
+## Input encoding
+
+xled expects UTF-8. An Excel "Save as CSV UTF-8" BOM at the start of the file is stripped so the first column header is not prefixed with it. If the file looks like UTF-7 (the `+ACI-` escape that Scoutbook exports emit) or carries a UTF-16 BOM, xled prints a warning at startup with the `iconv` command needed to convert it to UTF-8 first. UTF-16 fails the underlying read; the warning lets you fix the file instead of staring at a "stream did not contain valid UTF-8" error.
+
 ## What xled does not do
 
 Query, join, aggregate, group, and sort are out of scope — that is [xql](https://github.com/excelano/xql) and DuckDB territory, and xled's error messages point you there by name. Reshaping is also out: splitting one cell into several columns, collapsing a multi-row header, unpivoting, merging stacked tables. xled carves *a* rectangle and rewrites cells within the table's existing shape; it is not a splitter and not a spreadsheet.

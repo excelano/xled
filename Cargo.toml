@@ -1,7 +1,7 @@
 [package]
 name = "xled"
 homepage = "https://excelano.com/xled/"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "sed and awk for tabular data — regex transforms over Excel-style ranges on CSV/DSV"
 license = "MIT"

@@ -36,6 +36,16 @@ The installer downloads the right tarball for your platform from the GitHub rele
 
 To uninstall, remove the binary: `rm ~/.cargo/bin/xled`.
 
+### With Homebrew
+
+On macOS or Linux, so `brew upgrade` keeps it current:
+
+```sh
+brew tap excelano/tap
+brew trust excelano/tap   # one-time: Homebrew gates third-party taps behind explicit trust
+brew install xled
+```
+
 ### With cargo
 
 If you have a Rust toolchain, install the published crate from [crates.io](https://crates.io/crates/xled). This compiles from source rather than fetching a prebuilt binary, so it is slower than the installer above but needs nothing else:

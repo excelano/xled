@@ -23,7 +23,7 @@ It is deliberately not a query engine. xled rewrites cells and reshapes nothing 
 The fastest path on Linux or macOS is the prebuilt-binary installer:
 
 ```sh
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/excelano/xled/releases/latest/download/xled-installer.sh | sh
+curl -fsSL https://raw.githubusercontent.com/excelano/xled/main/install.sh | sh
 ```
 
 On Windows, in PowerShell:
@@ -34,7 +34,13 @@ powershell -ExecutionPolicy ByPass -c "irm https://github.com/excelano/xled/rele
 
 The installer downloads the right tarball for your platform from the GitHub release, verifies its checksum, and drops the binary into `~/.cargo/bin` (or the equivalent on Windows). If `xled` isn't found on your `PATH` afterward, ensure `~/.cargo/bin` is on it. Releases also ship raw tarballs (`xled-*.tar.xz` / `.zip`) for manual installation.
 
-To uninstall, remove the binary: `rm ~/.cargo/bin/xled`.
+To uninstall:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/excelano/xled/main/uninstall.sh | sh
+```
+
+That removes the binary from `~/.cargo/bin`; you can also just `rm ~/.cargo/bin/xled`.
 
 ### With Homebrew
 

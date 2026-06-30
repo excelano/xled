@@ -20,21 +20,44 @@ It is deliberately not a query engine. xled rewrites cells and reshapes nothing 
 
 ## Install
 
-The fastest path on Linux or macOS is the prebuilt-binary installer:
+### Debian and Ubuntu
+
+Add the [Excelano apt repository](https://excelano.com/apt/) once (one-time setup):
+
+```sh
+curl -fsSL https://excelano.com/apt/setup.sh | sudo sh
+```
+
+Then install it, so `apt upgrade` keeps it current:
+
+```sh
+sudo apt install xled
+```
+
+Both amd64 and arm64 packages ship with every release.
+
+### Homebrew
+
+On macOS or Linux, tap and trust the repository once — Homebrew gates third-party taps behind explicit trust (one-time setup):
+
+```sh
+brew tap excelano/tap
+brew trust excelano/tap
+```
+
+Then install it, so `brew upgrade` keeps it current:
+
+```sh
+brew install xled
+```
+
+### Prebuilt binary (Linux and macOS)
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/excelano/xled/main/install.sh | sh
 ```
 
-On Windows, in PowerShell:
-
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://github.com/excelano/xled/releases/latest/download/xled-installer.ps1 | iex"
-```
-
-The installer downloads the right tarball for your platform from the GitHub release, verifies its checksum, and drops the binary into `~/.cargo/bin` (or the equivalent on Windows). If `xled` isn't found on your `PATH` afterward, ensure `~/.cargo/bin` is on it. Releases also ship raw tarballs (`xled-*.tar.xz` / `.zip`) for manual installation.
-
-To uninstall:
+The installer downloads the right tarball for your platform from the GitHub release, verifies its checksum, and drops the binary into `~/.cargo/bin` (or the equivalent on Windows). If `xled` isn't found on your `PATH` afterward, ensure `~/.cargo/bin` is on it. Releases also ship raw tarballs (`xled-*.tar.xz` / `.zip`) for manual installation. To uninstall:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/excelano/xled/main/uninstall.sh | sh
@@ -42,34 +65,21 @@ curl -fsSL https://raw.githubusercontent.com/excelano/xled/main/uninstall.sh | s
 
 That removes the binary from `~/.cargo/bin`; you can also just `rm ~/.cargo/bin/xled`.
 
-### With Homebrew
+### Windows
 
-On macOS or Linux, so `brew upgrade` keeps it current:
+In PowerShell:
 
-```sh
-brew tap excelano/tap
-brew trust excelano/tap   # one-time: Homebrew gates third-party taps behind explicit trust
-brew install xled
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/excelano/xled/releases/latest/download/xled-installer.ps1 | iex"
 ```
 
-### With cargo
+### Cargo
 
 If you have a Rust toolchain, install the published crate from [crates.io](https://crates.io/crates/xled). This compiles from source rather than fetching a prebuilt binary, so it is slower than the installer above but needs nothing else:
 
 ```sh
 cargo install xled
 ```
-
-### Debian and Ubuntu
-
-Install from the [Excelano apt repository](https://excelano.com/apt/), so `apt upgrade` keeps it current:
-
-```sh
-curl -fsSL https://excelano.com/apt/setup.sh | sudo sh
-sudo apt install xled
-```
-
-Both amd64 and arm64 packages ship with every release.
 
 ## Build from source
 

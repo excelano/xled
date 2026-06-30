@@ -81,7 +81,7 @@ If you have a Rust toolchain, install the published crate from [crates.io](https
 cargo install xled
 ```
 
-## Build from source
+### Build from source
 
 xled requires only a Rust toolchain. Four pure-Rust crates carry the load (`regex`, `csv`, `clap`, `rustyline`); there are no C dependencies and no runtime.
 

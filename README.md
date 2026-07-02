@@ -51,20 +51,6 @@ Then install it, so `brew upgrade` keeps it current:
 brew install xled
 ```
 
-### Prebuilt binary (Linux and macOS)
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/excelano/xled/main/install.sh | sh
-```
-
-The installer downloads the right tarball for your platform from the GitHub release, verifies its checksum, and drops the binary into `~/.cargo/bin` (or the equivalent on Windows). If `xled` isn't found on your `PATH` afterward, ensure `~/.cargo/bin` is on it. Releases also ship raw tarballs (`xled-*.tar.xz` / `.zip`) for manual installation. To uninstall:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/excelano/xled/main/uninstall.sh | sh
-```
-
-That removes the binary from `~/.cargo/bin`; you can also just `rm ~/.cargo/bin/xled`.
-
 ### Windows
 
 With [WinGet](https://learn.microsoft.com/windows/package-manager/), so `winget upgrade` keeps it current:
@@ -78,6 +64,20 @@ Or run the standalone installer in PowerShell:
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://github.com/excelano/xled/releases/latest/download/xled-installer.ps1 | iex"
 ```
+
+### Prebuilt binary (Linux and macOS)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/excelano/xled/main/install.sh | sh
+```
+
+The installer downloads the right tarball for your platform from the GitHub release, verifies its checksum, and drops the binary into `~/.cargo/bin` (or the equivalent on Windows). If `xled` isn't found on your `PATH` afterward, ensure `~/.cargo/bin` is on it. Releases also ship raw tarballs (`xled-*.tar.xz` / `.zip`) for manual installation. To uninstall:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/excelano/xled/main/uninstall.sh | sh
+```
+
+That removes the binary from `~/.cargo/bin`; you can also just `rm ~/.cargo/bin/xled`.
 
 ### Cargo
 

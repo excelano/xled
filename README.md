@@ -67,7 +67,13 @@ That removes the binary from `~/.cargo/bin`; you can also just `rm ~/.cargo/bin/
 
 ### Windows
 
-In PowerShell:
+With [WinGet](https://learn.microsoft.com/windows/package-manager/), so `winget upgrade` keeps it current:
+
+```powershell
+winget install Excelano.xled
+```
+
+Or run the standalone installer in PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://github.com/excelano/xled/releases/latest/download/xled-installer.ps1 | iex"

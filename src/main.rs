@@ -8,7 +8,7 @@
 use clap::Parser as ClapParser;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
-use std::io::{self, IsTerminal, Read};
+use std::io::{self, IsTerminal, Read, Write};
 use std::process::exit;
 use xled::{exec, io as xio, model::Buffer, parser, session::Session};
 
@@ -78,15 +78,27 @@ fn one_shot(mut buf: Buffer, script: &str) -> xled::Result<()> {
     let program = parser::parse_program(script)?;
     let out = exec::run(&mut buf, &program)?;
     if out.output.is_empty() {
-        print!("{}", xio::serialize(&buf)?);
+        write_stdout(&xio::serialize(&buf)?)?;
     } else {
-        println!("{}", out.output.join("\n"));
+        write_stdout(&format!("{}\n", out.output.join("\n")))?;
     }
     // Notices to stderr: keep stdout a clean data stream for piping.
     for n in &out.notices {
         eprintln!("{n}");
     }
     Ok(())
+}
+
+/// Write the data stream to stdout, exiting quietly when the downstream reader has
+/// closed the pipe early (e.g. `xled … | head`). The `print!`/`println!` macros unwrap
+/// the write and panic on `EPIPE`; matching `cat`/`grep`, a broken pipe is a clean stop.
+fn write_stdout(s: &str) -> xled::Result<()> {
+    let mut out = io::stdout().lock();
+    match out.write_all(s.as_bytes()).and_then(|()| out.flush()) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == io::ErrorKind::BrokenPipe => exit(0),
+        Err(e) => Err(xled::XledError::Io(e.to_string())),
+    }
 }
 
 /// The REPL: a live buffer edited in place, saved deliberately. Word commands —

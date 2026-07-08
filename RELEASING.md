@@ -12,12 +12,11 @@ The release loop for a new version. Run it from a clean `main` with the working 
    ```
    It builds amd64 + arm64 packages and uploads them to the release.
 
-4. **Publish to crates.io.** From the repo root:
+4. **crates.io publishes itself.** The `v*` tag also triggers `publish-crate.yml`, which runs `cargo publish` with the org-secret token — so crates.io is live within a minute of the push, no local step. Confirm it succeeded:
    ```sh
-   cargo publish --dry-run   # full package + build + verify, no upload
-   cargo publish
+   gh run list --workflow=publish-crate.yml --limit 1
    ```
-   You stay logged in after the first `cargo login`, so this is a single command. **Versions are immutable** — you can `cargo yank` a bad release to hide it from new dependency resolution, but never re-publish the same number. A fix is always a fresh version bump, never a re-push.
+   Do **not** run `cargo publish` by hand — the pipeline beats you to it and you'll just get `already exists`. **Versions are immutable**: you can `cargo yank` a bad release to hide it from new dependency resolution, but never re-publish the same number. A fix is always a fresh version bump, never a re-push.
 
 5. **Add the .debs to the Excelano apt repo.** Download the two `.deb`s from the release, then in `~/excelano-apt/`: `add-deb.sh` each one → `rebuild.sh` (GPG-signs) → `updatesite excelano.com.apt -y`. **Dry-run the rsync first** (`rsync … --delete -n`) and confirm zero deletions before the real push — the apt pool is a superset of live, and a stray `--delete` wipe is the standing hazard. See `feedback_rsync_parent_wipes_subpath`.
 

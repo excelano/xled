@@ -161,6 +161,24 @@ Brackets disambiguate the hard cases for free: the column *named* `B` is `[B]` w
 
 Each command enforces a scope contract. `= expr` writes exactly one column; `del` takes whole rows xor whole columns, never a partial rectangle; `header` and `rename` take one row or one column. When a command and an address disagree, xled refuses with a correction that names the right form rather than guessing.
 
+## Reading values
+
+A read prints CSV by default, header and all, which is the right thing when the result is a table. Two flags reshape it for scripting. `--raw` drops the header and the CSV quoting and prints just the addressed values, one per line, so a single-cell lookup is the value and nothing else:
+
+```sh
+xled --raw '[status] 12' file.csv      # -> approved
+owner=$(xled --raw '[owner] 3' file.csv)
+```
+
+`--number` prefixes each row with its logical row number — the number xled itself addresses by. That matters because a cell may hold an embedded newline: piping a column into `nl` counts physical lines and drifts out of sync for every row after the first multiline value, while `--number` stays keyed to the real row:
+
+```sh
+xled --number '[description]' file.csv    # a reliable row-number -> value map
+xled --raw --number '[description]' file.csv
+```
+
+Both shape the output of a read (a bare address or `show`); on a script that changes cells they have nothing to format and are ignored. There is deliberately no `row()` function inside a compute — a computed cell sees values, not its own position — so `--number` is the one way to surface row numbers.
+
 ## Expressions
 
 `= expr` is the compute layer. Values are one of three types — string, number, bool — and there is **no automatic coercion**: arithmetic requires numbers, and you cast explicitly with `num()` or `bool()`. That is what keeps leading zeros and long identifiers intact. A cast that fails is non-halting: the cell is left untouched and a tally tells you how many were skipped.

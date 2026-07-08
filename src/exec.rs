@@ -23,13 +23,29 @@ pub struct Outcome {
     pub notices: Vec<String>,
 }
 
-/// Run a program, collecting the text output of every `show` (mutating commands return none)
-/// and any advisory notices raised along the way.
+/// How inspect (`show` / bare-address) output is rendered. The default is the CSV/DSV table.
+/// `raw` drops the header and prints just the addressed cell values, one per line, unquoted
+/// (issue #7); `number` prefixes each output row with its logical 1-based row number, so a
+/// pipe keeps xled's own row addressing even across cells with embedded newlines (issue #4).
+/// Both are one-shot CLI options; the REPL always renders the plain table.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RenderOpts {
+    pub raw: bool,
+    pub number: bool,
+}
+
+/// Run a program with the default (plain-table) inspect rendering.
 pub fn run(buf: &mut Buffer, program: &[Statement]) -> Result<Outcome> {
+    run_with(buf, program, RenderOpts::default())
+}
+
+/// Run a program, collecting the text output of every `show` (mutating commands return none)
+/// and any advisory notices raised along the way. `opts` govern how inspect output is rendered.
+pub fn run_with(buf: &mut Buffer, program: &[Statement], opts: RenderOpts) -> Result<Outcome> {
     let mut output = Vec::new();
     let mut notices = Vec::new();
     for st in program {
-        if let Some(text) = run_statement(buf, st, &mut notices)? {
+        if let Some(text) = run_statement(buf, st, &mut notices, opts)? {
             output.push(text);
         }
     }
@@ -40,6 +56,7 @@ fn run_statement(
     buf: &mut Buffer,
     st: &Statement,
     notices: &mut Vec<String>,
+    opts: RenderOpts,
 ) -> Result<Option<String>> {
     // Assignment resolves its target specially (it may create a new column), so it doesn't
     // go through the generic scope resolver.
@@ -53,7 +70,7 @@ fn run_statement(
         None => resolver::full_table(buf),
     };
     match &st.command {
-        None | Some(Command::Show) => Ok(Some(render(buf, &scope))),
+        None | Some(Command::Show) => Ok(Some(render(buf, &scope, opts))),
         Some(Command::Subst {
             re,
             rep,
@@ -473,22 +490,24 @@ fn apply_subst(
     Ok(())
 }
 
-/// Render a cell set as CSV/DSV: the present columns (with header, if any), and for each
-/// present row the selected cells (cells outside the set render empty). Exact for rectangles
-/// and column/row selections; a reasonable projection for arbitrary unions.
-pub fn render(buf: &Buffer, scope: &CellSet) -> String {
-    let cols: Vec<usize> = scope
-        .iter()
-        .map(|&(_, c)| c)
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect();
-    let rows: Vec<usize> = scope
-        .iter()
-        .map(|&(r, _)| r)
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect();
+/// Render a cell set for inspection, per `opts`: the CSV/DSV table by default, or the
+/// value-only stream when `raw` is set. `number` prefixes each output row with its logical
+/// 1-based row number in either mode.
+pub fn render(buf: &Buffer, scope: &CellSet, opts: RenderOpts) -> String {
+    if opts.raw {
+        render_raw(buf, scope, opts.number)
+    } else {
+        render_csv(buf, scope, opts.number)
+    }
+}
+
+/// The default table render: the present columns (with header, if any), and for each present
+/// row the selected cells (cells outside the set render empty). Exact for rectangles and
+/// column/row selections; a reasonable projection for arbitrary unions. With `number`, a
+/// leading `row` column carries each row's logical 1-based index.
+fn render_csv(buf: &Buffer, scope: &CellSet, number: bool) -> String {
+    let cols: Vec<usize> = scope.iter().map(|&(_, c)| c).collect::<BTreeSet<_>>().into_iter().collect();
+    let rows: Vec<usize> = scope.iter().map(|&(r, _)| r).collect::<BTreeSet<_>>().into_iter().collect();
 
     let mut wtr = WriterBuilder::new()
         .delimiter(buf.delim)
@@ -496,24 +515,45 @@ pub fn render(buf: &Buffer, scope: &CellSet) -> String {
         .from_writer(Vec::new());
 
     if buf.header.is_some() {
-        let rec: Vec<&str> = cols.iter().map(|&c| buf.col_name(c).unwrap_or("")).collect();
+        let mut rec: Vec<String> =
+            cols.iter().map(|&c| buf.col_name(c).unwrap_or("").to_string()).collect();
+        if number {
+            rec.insert(0, "row".to_string());
+        }
         wtr.write_record(&rec).unwrap();
     }
     for &r in &rows {
-        let rec: Vec<&str> = cols
+        let mut rec: Vec<String> = cols
             .iter()
-            .map(|&c| {
-                if scope.contains(&(r, c)) {
-                    buf.cell(r, c)
-                } else {
-                    ""
-                }
-            })
+            .map(|&c| if scope.contains(&(r, c)) { buf.cell(r, c).to_string() } else { String::new() })
             .collect();
+        if number {
+            rec.insert(0, (r + 1).to_string());
+        }
         wtr.write_record(&rec).unwrap();
     }
 
     let bytes = wtr.into_inner().unwrap();
     let text = String::from_utf8(bytes).unwrap();
     text.trim_end_matches('\n').to_string()
+}
+
+/// The value-only render (issue #7): each addressed cell, in row-major order, on its own line
+/// with no header and no CSV quoting — a single-cell read is just the value. With `number`,
+/// each line is prefixed with its cell's logical 1-based row number and a tab (issue #4);
+/// cells in the same logical row share a number.
+fn render_raw(buf: &Buffer, scope: &CellSet, number: bool) -> String {
+    // A CellSet is a BTreeSet<(row, col)>, so iteration is already row-major.
+    scope
+        .iter()
+        .map(|&(r, c)| {
+            let v = buf.cell(r, c);
+            if number {
+                format!("{}\t{v}", r + 1)
+            } else {
+                v.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }

@@ -211,6 +211,14 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
             let cond = cast_bool(&eval(buf, row, &args[0])?)?;
             eval(buf, row, if cond { &args[1] } else { &args[2] })
         }
+        // A row-index function is deliberately absent: a computed cell sees only values, and
+        // reading its own position would break that value-in/value-out model. Point to the
+        // flag that does emit logical row numbers instead of leaving a bare "unknown function".
+        "row" => Err(EvalErr::Hard(XledError::Correction(
+            "there is no row() — a computed column can't read its own row index. To emit \
+             logical row numbers, use the --number flag: `xled --number '[col]' file`."
+                .into(),
+        ))),
         other => Err(EvalErr::Hard(XledError::Correction(format!(
             "unknown function {other}()"
         )))),

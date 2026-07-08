@@ -38,6 +38,16 @@ struct Cli {
         default_missing_value = ""
     )]
     in_place: Option<String>,
+    /// value-only output: print just the addressed cell values, one per line, with no header
+    /// row and no CSV quoting — a single-cell read is then just the value, handy in shell
+    /// pipelines and command substitutions. Applies to inspect scripts (a bare address / `show`)
+    #[arg(long)]
+    raw: bool,
+    /// prefix each output row with its logical 1-based row number, so a pipe keeps xled's own
+    /// row addressing even across cells with embedded newlines (which line-based tools miscount).
+    /// Applies to inspect scripts (a bare address / `show`)
+    #[arg(long)]
+    number: bool,
     /// treat the first row as data, not a header. Use this when the real header is buried
     /// under a title block: row numbers then match the file, so you can `crop` to the table
     /// and promote the right row with `header` (otherwise row 1 is silently taken as the
@@ -74,6 +84,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
     let delim = cli.delim.map(|c| c as u8);
     let stdin_tty = io::stdin().is_terminal();
     let in_place = cli.in_place.as_deref();
+    let opts = exec::RenderOpts { raw: cli.raw, number: cli.number };
 
     // -f/--file reads the script from a file; the lone positional (if any) is then the input
     // file, so the script-vs-file polymorphism of the bare single-positional form disappears.
@@ -86,14 +97,14 @@ fn real_main(cli: Cli) -> xled::Result<()> {
         return match cli.script {
             Some(file) => {
                 let buf = xio::read_file(&file, delim, has_header)?;
-                emit(render(buf, &script)?, in_place, Some(&file))
+                emit(render(buf, &script, opts)?, in_place, Some(&file))
             }
             None => {
                 if stdin_tty {
                     eprintln!("-f needs data: give an input file or pipe data in");
                     exit(2);
                 }
-                emit(render(read_stdin(delim, has_header)?, &script)?, in_place, None)
+                emit(render(read_stdin(delim, has_header)?, &script, opts)?, in_place, None)
             }
         };
     }
@@ -102,7 +113,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
         // explicit script + file → one-shot on the file
         (Some(script), Some(file)) => {
             let buf = xio::read_file(&file, delim, has_header)?;
-            emit(render(buf, &script)?, in_place, Some(&file))
+            emit(render(buf, &script, opts)?, in_place, Some(&file))
         }
         // single positional: a file to open (terminal) or a script over piped stdin
         (Some(arg), None) => {
@@ -115,7 +126,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
                 repl(buf, Some(arg))
             } else {
                 let buf = read_stdin(delim, has_header)?;
-                emit(render(buf, &arg)?, in_place, None)
+                emit(render(buf, &arg, opts)?, in_place, None)
             }
         }
         (None, _) => {
@@ -147,13 +158,19 @@ struct Rendered {
 /// Run the script once. If the program only mutated the buffer, the rendered text is the
 /// serialized table (sed-without-`-i` behaviour); if it produced `show` output, that is the
 /// text and `is_query` is set. Notices always go to stderr so the data stream stays clean.
-fn render(mut buf: Buffer, script: &str) -> xled::Result<Rendered> {
+fn render(mut buf: Buffer, script: &str, opts: exec::RenderOpts) -> xled::Result<Rendered> {
     let program = parser::parse_program(script)?;
-    let out = exec::run(&mut buf, &program)?;
+    let out = exec::run_with(&mut buf, &program, opts)?;
     for n in &out.notices {
         eprintln!("{n}");
     }
     if out.output.is_empty() {
+        if opts.raw || opts.number {
+            eprintln!(
+                "note: --raw/--number format inspect output (a bare address or `show`); this \
+                 script writes the whole table, so they had no effect"
+            );
+        }
         Ok(Rendered { text: xio::serialize(&buf)?, is_query: false })
     } else {
         Ok(Rendered { text: format!("{}\n", out.output.join("\n")), is_query: true })

@@ -8,6 +8,7 @@
 use clap::Parser as ClapParser;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
+use std::fs;
 use std::io::{self, IsTerminal, Read, Write};
 use std::process::exit;
 use xled::{exec, io as xio, model::Buffer, parser, session::Session};
@@ -22,6 +23,21 @@ struct Cli {
     /// field delimiter (defaults to ',', or tab for a .tsv file)
     #[arg(short, long)]
     delim: Option<char>,
+    /// read the command script from a file instead of the inline argument (like `sed -f`).
+    /// The lone positional is then the input file: `xled -f batch.xled data.csv`
+    #[arg(short = 'f', long = "file", value_name = "SCRIPTFILE")]
+    script_file: Option<String>,
+    /// edit the file in place instead of writing to stdout (like `sed -i`). Attach an
+    /// optional backup suffix to keep the original: `-i.bak` / `--in-place=.bak`
+    #[arg(
+        short = 'i',
+        long = "in-place",
+        value_name = "SUFFIX",
+        num_args = 0..=1,
+        require_equals = true,
+        default_missing_value = ""
+    )]
+    in_place: Option<String>,
     /// treat the first row as data, not a header. Use this when the real header is buried
     /// under a title block: row numbers then match the file, so you can `crop` to the table
     /// and promote the right row with `header` (otherwise row 1 is silently taken as the
@@ -31,32 +47,75 @@ struct Cli {
 }
 
 fn main() {
-    let cli = Cli::parse();
+    let cli = Cli::parse_from(normalize_in_place(std::env::args()));
     if let Err(e) = real_main(cli) {
         eprintln!("{e}");
         exit(1);
     }
 }
 
+/// sed attaches the in-place backup suffix to the flag (`-i.bak`); clap models an optional
+/// value with `=`, so rewrite the short attached form `-i<suffix>` to `-i=<suffix>` before
+/// parsing. Bare `-i` (no backup) and the long `--in-place[=suffix]` form pass through as-is.
+fn normalize_in_place<I: IntoIterator<Item = String>>(args: I) -> Vec<String> {
+    args.into_iter()
+        .map(|a| {
+            if a.len() > 2 && a.starts_with("-i") && !a.starts_with("-i=") {
+                format!("-i={}", &a[2..])
+            } else {
+                a
+            }
+        })
+        .collect()
+}
+
 fn real_main(cli: Cli) -> xled::Result<()> {
     let has_header = !cli.no_header;
     let delim = cli.delim.map(|c| c as u8);
     let stdin_tty = io::stdin().is_terminal();
+    let in_place = cli.in_place.as_deref();
+
+    // -f/--file reads the script from a file; the lone positional (if any) is then the input
+    // file, so the script-vs-file polymorphism of the bare single-positional form disappears.
+    if let Some(path) = &cli.script_file {
+        if cli.file.is_some() {
+            eprintln!("-f reads the script from a file — pass only the input file, not an inline script");
+            exit(2);
+        }
+        let script = read_script_file(path)?;
+        return match cli.script {
+            Some(file) => {
+                let buf = xio::read_file(&file, delim, has_header)?;
+                emit(render(buf, &script)?, in_place, Some(&file))
+            }
+            None => {
+                if stdin_tty {
+                    eprintln!("-f needs data: give an input file or pipe data in");
+                    exit(2);
+                }
+                emit(render(read_stdin(delim, has_header)?, &script)?, in_place, None)
+            }
+        };
+    }
 
     match (cli.script, cli.file) {
         // explicit script + file → one-shot on the file
         (Some(script), Some(file)) => {
             let buf = xio::read_file(&file, delim, has_header)?;
-            one_shot(buf, &script)
+            emit(render(buf, &script)?, in_place, Some(&file))
         }
         // single positional: a file to open (terminal) or a script over piped stdin
         (Some(arg), None) => {
             if stdin_tty {
+                if in_place.is_some() {
+                    eprintln!("-i edits a one-shot result in place — it has no effect on the REPL (use `write`)");
+                    exit(2);
+                }
                 let buf = xio::read_file(&arg, delim, has_header)?;
                 repl(buf, Some(arg))
             } else {
                 let buf = read_stdin(delim, has_header)?;
-                one_shot(buf, &arg)
+                emit(render(buf, &arg)?, in_place, None)
             }
         }
         (None, _) => {
@@ -66,27 +125,67 @@ fn real_main(cli: Cli) -> xled::Result<()> {
     }
 }
 
+/// Read the command script from a file (for `-f`/`--file`).
+fn read_script_file(path: &str) -> xled::Result<String> {
+    fs::read_to_string(path).map_err(|e| xled::XledError::Io(format!("{path}: {e}")))
+}
+
 fn read_stdin(delim: Option<u8>, has_header: bool) -> xled::Result<Buffer> {
     let mut data = String::new();
     io::stdin().read_to_string(&mut data)?;
     xio::read_str(&data, delim.unwrap_or(b','), has_header)
 }
 
-/// Run the script once. Print any `show` output; if the program only mutated the buffer,
-/// stream the resulting table to stdout (sed-without-`-i` behaviour).
-fn one_shot(mut buf: Buffer, script: &str) -> xled::Result<()> {
+/// The result of a one-shot run, ready to hand to a destination.
+struct Rendered {
+    text: String,
+    /// true when the script produced `show`/inspect output rather than mutating the table —
+    /// such a result must not be written back over the source file by `-i`.
+    is_query: bool,
+}
+
+/// Run the script once. If the program only mutated the buffer, the rendered text is the
+/// serialized table (sed-without-`-i` behaviour); if it produced `show` output, that is the
+/// text and `is_query` is set. Notices always go to stderr so the data stream stays clean.
+fn render(mut buf: Buffer, script: &str) -> xled::Result<Rendered> {
     let program = parser::parse_program(script)?;
     let out = exec::run(&mut buf, &program)?;
-    if out.output.is_empty() {
-        write_stdout(&xio::serialize(&buf)?)?;
-    } else {
-        write_stdout(&format!("{}\n", out.output.join("\n")))?;
-    }
-    // Notices to stderr: keep stdout a clean data stream for piping.
     for n in &out.notices {
         eprintln!("{n}");
     }
-    Ok(())
+    if out.output.is_empty() {
+        Ok(Rendered { text: xio::serialize(&buf)?, is_query: false })
+    } else {
+        Ok(Rendered { text: format!("{}\n", out.output.join("\n")), is_query: true })
+    }
+}
+
+/// Send a one-shot result to its destination: stdout by default, or — when `-i`/`--in-place`
+/// is set and a source file exists — back to that file, first copying it to `<file><suffix>`
+/// when a backup suffix was given. In-place refuses an inspect-only result (it would overwrite
+/// the file with query output) and refuses piped stdin (there is no file to edit).
+fn emit(r: Rendered, in_place: Option<&str>, file: Option<&str>) -> xled::Result<()> {
+    match (in_place, file) {
+        (Some(suffix), Some(path)) => {
+            if r.is_query {
+                eprintln!(
+                    "-i edits the table in place, but this script only inspects it — drop -i to \
+                     print the result, or use a command that changes cells"
+                );
+                exit(2);
+            }
+            if !suffix.is_empty() {
+                fs::copy(path, format!("{path}{suffix}"))
+                    .map_err(|e| xled::XledError::Io(e.to_string()))?;
+            }
+            fs::write(path, &r.text).map_err(|e| xled::XledError::Io(e.to_string()))
+        }
+        (Some(_), None) => {
+            eprintln!("-i edits a file in place — it needs a file argument, not piped stdin");
+            exit(2);
+        }
+        (None, _) => write_stdout(&r.text),
+    }
 }
 
 /// Write the data stream to stdout, exiting quietly when the downstream reader has

@@ -108,6 +108,22 @@ xled file.csv                # open the interactive REPL on a file
 
 In one-shot mode the data goes to stdout (clean, ready to pipe) and any advisory notices go to stderr, so `xled … file.csv > out.csv` is always safe. The REPL previews edits, keeps an undo stack, and writes only when you tell it to.
 
+Two flags follow sed and awk directly. `-i` (`--in-place`) edits the file where it sits instead of printing to stdout, and an attached suffix keeps the original as a backup, exactly as `sed -i.bak` does:
+
+```sh
+xled -i '[price] s/[$,]//g' file.csv       # rewrite file.csv in place
+xled -i.bak '[price] s/[$,]//g' file.csv   # …and save the original as file.csv.bak
+```
+
+`-f` (`--file`) reads the script from a file rather than the command line, which avoids the `"$(cat …)"` dance when a batch of edits grows past a comfortable one-liner:
+
+```sh
+xled -f batch.xled file.csv                # run the script in batch.xled
+xled -i -f batch.xled file.csv             # …and apply it in place
+```
+
+In-place editing is for scripts that change cells; run an inspect-only script (a bare address, or `show`) without `-i` so its output prints rather than overwriting the file.
+
 A statement is `address command`, one per line. The address picks the cells; the command acts on them. Either part can stand alone: an address by itself shows those cells, and a command with no address acts on the whole table.
 
 ## Addresses

@@ -98,6 +98,20 @@ cargo build --release
 
 The binary is at `target/release/xled`.
 
+## Use it from Claude Code
+
+xled was built for AI coding agents as much as for people, so the repo ships an official [Claude Code](https://docs.claude.com/en/docs/claude-code) skill under [`skills/xled/`](skills/xled/). It teaches an agent xled's addressing model, commands, the no-coercion type rules, and the hard boundary (never reshapes — reach for SQL/DuckDB instead), so it uses xled correctly rather than routing around it to a tool it already knows. Drop it into your personal skills directory:
+
+```sh
+mkdir -p ~/.claude/skills/xled
+for f in SKILL.md reference.md; do
+  curl -fsSL "https://raw.githubusercontent.com/excelano/xled/main/skills/xled/$f" \
+    -o ~/.claude/skills/xled/$f
+done
+```
+
+Or, from a clone of this repo, `cp -r skills/xled ~/.claude/skills/`.
+
 ## Three ways to run it
 
 ```sh

@@ -257,6 +257,45 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
             };
             Ok(Value::Str(pad(&s, width, &fill, name == "lpad")))
         }
+        // Numeric helpers rounding out `round`. All cast their args with num()-strength
+        // coercion, so a non-number skips the cell and tallies, same as arithmetic.
+        "abs" => {
+            want(1)?;
+            Ok(Value::Num(cast_num(&eval(buf, row, &args[0])?)?.abs()))
+        }
+        "floor" => {
+            want(1)?;
+            Ok(Value::Num(cast_num(&eval(buf, row, &args[0])?)?.floor()))
+        }
+        "ceil" => {
+            want(1)?;
+            Ok(Value::Num(cast_num(&eval(buf, row, &args[0])?)?.ceil()))
+        }
+        // Remainder with the dividend's sign (Rust/awk/C `%`, not Excel's divisor-sign MOD),
+        // this being sed *and awk*. Divide-by-zero leaves the cell + tallies, like BinOp::Div.
+        "mod" => {
+            want(2)?;
+            let a = cast_num(&eval(buf, row, &args[0])?)?;
+            let b = cast_num(&eval(buf, row, &args[1])?)?;
+            if b == 0.0 {
+                return Err(EvalErr::Cast);
+            }
+            Ok(Value::Num(a % b))
+        }
+        // Variadic and numeric-only (the names imply numbers); ≥1 arg, coalesce's precedent.
+        "min" | "max" => {
+            if argc == 0 {
+                return Err(EvalErr::Hard(XledError::Correction(format!(
+                    "{name}() needs at least one argument"
+                ))));
+            }
+            let mut acc = cast_num(&eval(buf, row, &args[0])?)?;
+            for a in &args[1..] {
+                let v = cast_num(&eval(buf, row, a)?)?;
+                acc = if name == "min" { acc.min(v) } else { acc.max(v) };
+            }
+            Ok(Value::Num(acc))
+        }
         // A row-index function is deliberately absent: a computed cell sees only values, and
         // reading its own position would break that value-in/value-out model. Point to the
         // flag that does emit logical row numbers instead of leaving a bare "unknown function".

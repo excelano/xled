@@ -186,12 +186,14 @@ Both shape the output of a read (a bare address or `show`); on a script that cha
 ```sh
 [total]  = round(num([price]) * [qty], 2)        # arithmetic, money-rounded
 [full]   = [first] & " " & [last]                # concatenation
+[name]   = proper(trim([name]))                  # tidy casing and stray spaces
+[zip]    = lpad([zip], 5, "0")                   # restore a stripped leading zero
 [low]    = num([qty]) < num([reorder])           # a boolean column
 [owner]  = default([owner], "Unassigned")        # fill blanks
 [flag]   = if(num([qty]) < num([reorder]), "REORDER", "ok")
 ```
 
-The library is `num bool len left right mid substr round default coalesce if`. Comparisons are string-wise unless both sides are cast with `num()` — `"9" > "10"` is true lexically, which is *not* numeric order — because auto-numifying would smuggle back exactly the surprises the stringly model exists to prevent.
+The library groups into text handling — `len left right mid substr trim ltrim rtrim lpad rpad` for measuring, slicing, stripping whitespace, and padding to a fixed width — case-folding — `upper lower proper`, the same Unicode dialect as `s///`'s `\U`/`\L` so the two never disagree — and casts and logic — `num bool round default coalesce if`. Padding never truncates: `lpad` on a value already at or past the width returns it unchanged, because dropping characters is the same betrayal as coercion. Comparisons are string-wise unless both sides are cast with `num()` — `"9" > "10"` is true lexically, which is *not* numeric order — because auto-numifying would smuggle back exactly the surprises the stringly model exists to prevent.
 
 Numbers serialize at full `f64` precision, so any currency or fixed-decimal column must be wrapped in `round(…, d)`; xled never rounds on write, because inventing precision the user didn't ask for is the same betrayal as silent coercion.
 

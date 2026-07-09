@@ -211,6 +211,52 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
             let cond = cast_bool(&eval(buf, row, &args[0])?)?;
             eval(buf, row, if cond { &args[1] } else { &args[2] })
         }
+        // Case-folding: Unicode, matching `s///`'s `\U`/`\L` exactly (both use char::to_upper/
+        // lowercase), so `upper([c])` and `[c] s/.*/\U&/` never diverge on non-ASCII.
+        "upper" => {
+            want(1)?;
+            Ok(Value::Str(eval(buf, row, &args[0])?.as_string().to_uppercase()))
+        }
+        "lower" => {
+            want(1)?;
+            Ok(Value::Str(eval(buf, row, &args[0])?.as_string().to_lowercase()))
+        }
+        "proper" => {
+            want(1)?;
+            Ok(Value::Str(title_case(&eval(buf, row, &args[0])?.as_string())))
+        }
+        // Whitespace stripping: Unicode `char::is_whitespace`, so Excel's non-breaking space
+        // (U+00A0) is trimmed too — a common exported-CSV artifact.
+        "trim" => {
+            want(1)?;
+            Ok(Value::Str(eval(buf, row, &args[0])?.as_string().trim().to_string()))
+        }
+        "ltrim" => {
+            want(1)?;
+            Ok(Value::Str(eval(buf, row, &args[0])?.as_string().trim_start().to_string()))
+        }
+        "rtrim" => {
+            want(1)?;
+            Ok(Value::Str(eval(buf, row, &args[0])?.as_string().trim_end().to_string()))
+        }
+        // Pad to a fixed width — the leading-zero restorer: `lpad([zip], 5, "0")`. Never
+        // truncates (a wider value passes through), because silent data loss is the same
+        // betrayal as coercion. `fill` defaults to a space.
+        "lpad" | "rpad" => {
+            if argc != 2 && argc != 3 {
+                return Err(EvalErr::Hard(XledError::Correction(format!(
+                    "{name}() takes 2 or 3 arguments (string, width, [fill])"
+                ))));
+            }
+            let s = eval(buf, row, &args[0])?.as_string();
+            let width = arg_usize(buf, row, &args[1])?;
+            let fill = if argc == 3 {
+                eval(buf, row, &args[2])?.as_string()
+            } else {
+                " ".to_string()
+            };
+            Ok(Value::Str(pad(&s, width, &fill, name == "lpad")))
+        }
         // A row-index function is deliberately absent: a computed cell sees only values, and
         // reading its own position would break that value-in/value-out model. Point to the
         // flag that does emit logical row numbers instead of leaving a bare "unknown function".
@@ -222,6 +268,46 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
         other => Err(EvalErr::Hard(XledError::Correction(format!(
             "unknown function {other}()"
         )))),
+    }
+}
+
+/// Title-case (`proper`): the first letter of each run of letters is uppercased, the rest
+/// lowercased, non-letters pass through untouched. Any non-letter resets the run, so this
+/// carries Excel PROPER's known quirk — `mcdonald` → `Mcdonald`, `o'brien` → `O'Brien` —
+/// rather than trying to out-guess names.
+fn title_case(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut at_word_start = true;
+    for ch in s.chars() {
+        if ch.is_alphabetic() {
+            if at_word_start {
+                out.extend(ch.to_uppercase());
+            } else {
+                out.extend(ch.to_lowercase());
+            }
+            at_word_start = false;
+        } else {
+            out.push(ch);
+            at_word_start = true;
+        }
+    }
+    out
+}
+
+/// Pad `s` to `width` characters (counted as Unicode scalars, like `len`) with `fill`, on the
+/// left (right-aligning `s`, for `lpad`) or the right (`rpad`). Never truncates: a value already
+/// at least `width` wide returns unchanged. `fill` repeats and is cut to the exact deficit; an
+/// empty `fill` can't pad, so the value passes through.
+fn pad(s: &str, width: usize, fill: &str, left: bool) -> String {
+    let len = s.chars().count();
+    if len >= width || fill.is_empty() {
+        return s.to_string();
+    }
+    let padding: String = fill.chars().cycle().take(width - len).collect();
+    if left {
+        format!("{padding}{s}")
+    } else {
+        format!("{s}{padding}")
     }
 }
 

@@ -27,10 +27,11 @@ updates:
       actions:
         patterns:
           - "*"
-    # actions/upload-artifact and actions/download-artifact are pinned by
+    # actions/checkout, actions/upload-artifact, and actions/download-artifact are pinned by
     # cargo-dist's generated release.yml. Bumping them independently breaks the
     # plan job. Update cargo-dist itself in dist-workspace.toml to pick up newer
     # artifact-action versions through that channel.
     ignore:
+      - dependency-name: "actions/checkout"
       - dependency-name: "actions/upload-artifact"
       - dependency-name: "actions/download-artifact"

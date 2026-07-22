@@ -15,7 +15,7 @@ categories = ["command-line-utilities", "text-processing"]
 regex = "1"
 csv = "1"
 clap = { version = "4", features = ["derive"] }
-rustyline = "14"
+rustyline = "18"
 encsniff = "0.1.0"
 
 [package.metadata.deb]

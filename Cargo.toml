@@ -25,7 +25,9 @@ xled is sed and awk for tabular data: awk's field model, sed's s/// substitution
 and ed's live in-memory buffer, applied to Excel-style ranges over CSV and DSV
 files. It is stringly-typed with explicit casts (leading zeros and long IDs stay
 intact), never reshapes the table, and previews every edit before you commit.
-Query, join, and aggregate are out of scope by design — that is xql's job."""
+Part of the Excelano tabular family — four small tools split by what changes:
+xray observes and changes nothing, xled edits cell values, xshape changes the
+grid's shape, xql queries the row set."""
 section = "utils"
 priority = "optional"
 depends = "libc6, libgcc-s1"

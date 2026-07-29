@@ -39,7 +39,10 @@ pub fn read_str(data: &str, delim: u8, has_header: bool) -> Result<Buffer> {
 /// Read a file, choosing the delimiter from its extension unless one is given.
 pub fn read_file(path: &str, delim: Option<u8>, has_header: bool) -> Result<Buffer> {
     sniff_and_warn(path);
-    let data = std::fs::read_to_string(path)?;
+    // Name the file in the error. A bare "No such file or directory" is useless
+    // in a script that reads several, and the OS error alone does not carry it.
+    let data = std::fs::read_to_string(path)
+        .map_err(|e| crate::XledError::Io(format!("{path}: {e}")))?;
     // UTF-8 BOM from Excel "Save as CSV UTF-8" — strip it so the first column
     // name doesn't carry a U+FEFF character.
     let trimmed = data.strip_prefix('\u{FEFF}').unwrap_or(&data);
@@ -56,7 +59,7 @@ fn sniff_and_warn(path: &str) {
         return;
     }
     if let Some(enc) = s.encoding {
-        eprintln!("warning: {path} appears to be {enc} encoded.");
+        eprintln!("xled: warning: {path} appears to be {enc} encoded.");
         if let Some(hint) = &s.hint {
             eprintln!("hint: {hint}");
         }

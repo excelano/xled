@@ -59,7 +59,9 @@ struct Cli {
 fn main() {
     let cli = Cli::parse_from(normalize_in_place(std::env::args()));
     if let Err(e) = real_main(cli) {
-        eprintln!("{e}");
+        // Every diagnostic names the tool that raised it, so a message in a
+        // pipeline of family tools points at the one that objected.
+        eprintln!("xled: {e}");
         exit(1);
     }
 }
@@ -90,7 +92,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
     // file, so the script-vs-file polymorphism of the bare single-positional form disappears.
     if let Some(path) = &cli.script_file {
         if cli.file.is_some() {
-            eprintln!("-f reads the script from a file — pass only the input file, not an inline script");
+            eprintln!("xled: -f reads the script from a file — pass only the input file, not an inline script");
             exit(2);
         }
         let script = read_script_file(path)?;
@@ -101,7 +103,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
             }
             None => {
                 if stdin_tty {
-                    eprintln!("-f needs data: give an input file or pipe data in");
+                    eprintln!("xled: -f needs data: give an input file or pipe data in");
                     exit(2);
                 }
                 emit(render(read_stdin(delim, has_header)?, &script, opts)?, in_place, None)
@@ -119,7 +121,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
         (Some(arg), None) => {
             if stdin_tty {
                 if in_place.is_some() {
-                    eprintln!("-i edits a one-shot result in place — it has no effect on the REPL (use `write`)");
+                    eprintln!("xled: -i edits a one-shot result in place — it has no effect on the REPL (use `write`)");
                     exit(2);
                 }
                 let buf = xio::read_file(&arg, delim, has_header)?;
@@ -130,6 +132,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
             }
         }
         (None, _) => {
+            eprintln!("xled: no script given");
             eprintln!("usage: xled '<command>' <file>   |   <data> | xled '<command>'   |   xled <file>");
             exit(2);
         }
@@ -186,8 +189,8 @@ fn emit(r: Rendered, in_place: Option<&str>, file: Option<&str>) -> xled::Result
         (Some(suffix), Some(path)) => {
             if r.is_query {
                 eprintln!(
-                    "-i edits the table in place, but this script only inspects it — drop -i to \
-                     print the result, or use a command that changes cells"
+                    "xled: -i edits the table in place, but this script only inspects it — drop \
+                     -i to print the result, or use a command that changes cells"
                 );
                 exit(2);
             }
@@ -198,7 +201,7 @@ fn emit(r: Rendered, in_place: Option<&str>, file: Option<&str>) -> xled::Result
             fs::write(path, &r.text).map_err(|e| xled::XledError::Io(e.to_string()))
         }
         (Some(_), None) => {
-            eprintln!("-i edits a file in place — it needs a file argument, not piped stdin");
+            eprintln!("xled: -i edits a file in place — it needs a file argument, not piped stdin");
             exit(2);
         }
         (None, _) => write_stdout(&r.text),

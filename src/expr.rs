@@ -1,20 +1,25 @@
 //! The compute layer: evaluate an `Expr` against one row to a typed `Value`.
 //!
-//! Three types (string/number/bool), no auto-coercion — casts are explicit (`num`, `bool`),
-//! the property that keeps leading zeros safe. A cast failure is non-halting: it surfaces as
-//! `EvalErr::Cast`, which the caller turns into "leave the cell, tally a warning" (rule 6).
-//! Comparisons are string-wise unless both sides are numbers (the A3 footgun, by design).
+//! Four types (string/number/bool/date), no auto-coercion — casts are explicit (`num`, `bool`,
+//! `date`), the property that keeps leading zeros safe. A cast failure is non-halting: it
+//! surfaces as `EvalErr::Cast`, which the caller turns into "leave the cell, tally a warning"
+//! (rule 6). Comparisons are string-wise unless both sides are numbers or both are dates (the
+//! A3 footgun, by design).
 
 use crate::ast::{BinOp, CmpOp, Expr};
+use crate::date;
 use crate::errors::XledError;
 use crate::model::Buffer;
+use chrono::{Datelike, NaiveDate};
 use std::cmp::Ordering;
+use std::sync::OnceLock;
 
 #[derive(Debug, Clone)]
 pub enum Value {
     Str(String),
     Num(f64),
     Bool(bool),
+    Date(NaiveDate),
 }
 
 /// A non-halting cast failure (skip the cell, tally) vs a halting program error.
@@ -31,11 +36,16 @@ impl Value {
     /// representation artifacts (`… * 1.1` → `…000004`). This is deliberate: rounding on
     /// write would invent precision the user didn't ask for, betraying the stringly model.
     /// Money/fixed-decimal columns must wrap the value in `round(…, d)` (see expr-grammar.md).
+    ///
+    /// Dates write as ISO 8601. That is what makes normalizing a column fall out of the cast
+    /// alone — `[hired] = date([hired], "DD/MM/YYYY")` needs no formatting call — and it is
+    /// also the one serialization that sorts correctly as plain text afterwards.
     pub fn into_string(self) -> String {
         match self {
             Value::Str(s) => s,
             Value::Num(n) => format!("{n}"),
             Value::Bool(b) => b.to_string(),
+            Value::Date(d) => d.format("%Y-%m-%d").to_string(),
         }
     }
 
@@ -44,6 +54,7 @@ impl Value {
             Value::Str(s) => s.clone(),
             Value::Num(n) => format!("{n}"),
             Value::Bool(b) => b.to_string(),
+            Value::Date(d) => d.format("%Y-%m-%d").to_string(),
         }
     }
 }
@@ -81,6 +92,21 @@ fn eval_bin(op: BinOp, a: Value, b: Value) -> Result<Value, EvalErr> {
     if let BinOp::Concat = op {
         return Ok(Value::Str(format!("{}{}", a.as_string(), b.as_string())));
     }
+    // Date arithmetic is matched ahead of the numeric requirement below, because a date is
+    // not a number: subtracting two of them yields a day count, and offsetting one by a
+    // number moves it by days. Anything else involving a date (date + date, number − date)
+    // falls through and fails the require_num check, which is the right answer — it has no
+    // meaning to reach for.
+    match (op, &a, &b) {
+        (BinOp::Sub, Value::Date(x), Value::Date(y)) => {
+            return Ok(Value::Num(x.signed_duration_since(*y).num_days() as f64));
+        }
+        (BinOp::Add, Value::Date(d), Value::Num(n)) | (BinOp::Add, Value::Num(n), Value::Date(d)) => {
+            return offset_days(*d, *n);
+        }
+        (BinOp::Sub, Value::Date(d), Value::Num(n)) => return offset_days(*d, -*n),
+        _ => {}
+    }
     // Arithmetic requires numbers already — no auto-coercion of strings (use num()).
     let x = require_num(&a)?;
     let y = require_num(&b)?;
@@ -100,9 +126,12 @@ fn eval_bin(op: BinOp, a: Value, b: Value) -> Result<Value, EvalErr> {
 }
 
 fn eval_cmp(op: CmpOp, a: &Value, b: &Value) -> bool {
-    // Numeric order only when both are already numbers; otherwise lexical (string-wise).
+    // Numeric order only when both are already numbers, chronological only when both are
+    // already dates; otherwise lexical (string-wise). A date compared against a string still
+    // orders correctly whenever that string is ISO, which is the point of serializing to ISO.
     let ord = match (a, b) {
         (Value::Num(x), Value::Num(y)) => x.partial_cmp(y),
+        (Value::Date(x), Value::Date(y)) => Some(x.cmp(y)),
         _ => Some(a.as_string().cmp(&b.as_string())),
     };
     match ord {
@@ -296,6 +325,91 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
             }
             Ok(Value::Num(acc))
         }
+        // The date cast. One argument reads ISO 8601 and nothing else; two spell out the
+        // layout. Casting a date again is a no-op, so date(date(x)) is harmless.
+        "date" => {
+            if argc != 1 && argc != 2 {
+                return Err(EvalErr::Hard(XledError::Correction(
+                    "date() takes 1 or 2 arguments (value, [format])".into(),
+                )));
+            }
+            let v = eval(buf, row, &args[0])?;
+            if let Value::Date(d) = v {
+                return Ok(Value::Date(d));
+            }
+            let s = v.as_string();
+            if argc == 2 {
+                let fmt = eval(buf, row, &args[1])?.as_string();
+                if !date::has_year(&fmt) {
+                    return Err(EvalErr::Hard(XledError::Correction(format!(
+                        "the format \"{fmt}\" names no year, so it can't read a date — add \
+                         a YYYY (or YY) token to it."
+                    ))));
+                }
+                return date::parse_with(&s, &fmt).map(Value::Date).ok_or(EvalErr::Cast);
+            }
+            if let Some(d) = date::parse_iso(&s) {
+                return Ok(Value::Date(d));
+            }
+            // Two different failures live here, and the split is the whole safety property.
+            // A value no known layout reads is a hole in the *data*: skip the cell, tally,
+            // rule 6. A value that some layout does read is a hole in the *program* — the
+            // user meant a date and hasn't said which layout — and that is wrong identically
+            // on every row, so it halts once rather than burying the fix in a warning count.
+            let hits = date::probe(&s);
+            let Some((first, first_date)) = hits.first() else {
+                return Err(EvalErr::Cast);
+            };
+            let disagreeing = hits.iter().find(|(_, d)| d != first_date);
+            Err(EvalErr::Hard(XledError::Correction(match disagreeing {
+                Some((other, _)) => format!(
+                    "{s} is ambiguous: both {first} and {other} parse it.\n\
+                     Say which one: date([col], \"{first}\")"
+                ),
+                None => format!(
+                    "{s} is not ISO 8601, and date() does not guess a layout.\n\
+                     Say it: date([col], \"{first}\")"
+                ),
+            })))
+        }
+        // Excel's TEXT, date half only. The name is reserved for the whole of it, so calling
+        // it on a number says "not yet" and points at what does exist today.
+        "text" => {
+            want(2)?;
+            let v = eval(buf, row, &args[0])?;
+            let fmt = eval(buf, row, &args[1])?.as_string();
+            match v {
+                Value::Date(d) => Ok(Value::Str(date::render(d, &fmt))),
+                Value::Num(_) => Err(EvalErr::Hard(XledError::NotAvailableYet(
+                    "text() formats dates. Number formatting — thousands separators, \
+                     currency, fixed decimals — is a later xled. For decimal places now: \
+                     round([col], 2)."
+                        .into(),
+                ))),
+                _ => Err(EvalErr::Hard(XledError::Correction(
+                    "text() needs a date, and xled does not coerce one — cast first: \
+                     text(date([col]), \"DD/MM/YYYY\")"
+                        .into(),
+                ))),
+            }
+        }
+        // Components, for grouping and filtering. `weekday` is ISO (1 = Monday), not Excel's
+        // 1 = Sunday: the serialization is already ISO, and a tool whose dates are ISO should
+        // not carry a US-convention off-by-one. Documented rather than silently different.
+        "year" | "month" | "day" | "weekday" => {
+            want(1)?;
+            let d = require_date(&eval(buf, row, &args[0])?, name)?;
+            Ok(Value::Num(match name {
+                "year" => d.year() as f64,
+                "month" => d.month() as f64,
+                "day" => d.day() as f64,
+                _ => d.weekday().number_from_monday() as f64,
+            }))
+        }
+        "today" => {
+            want(0)?;
+            Ok(Value::Date(today()))
+        }
         // A row-index function is deliberately absent: a computed cell sees only values, and
         // reading its own position would break that value-in/value-out model. Point to the
         // flag that does emit logical row numbers instead of leaving a bare "unknown function".
@@ -368,11 +482,20 @@ fn require_num(v: &Value) -> Result<f64, EvalErr> {
 }
 
 /// Explicit `num()` cast: parse strings, bools → 1/0.
+///
+/// A date has no number to cast to. Excel would hand back a serial number, but serials are
+/// the damage xled exists to repair (`intake-taxonomy.md`), not a value to hand out — so this
+/// halts and names the four things the caller actually wanted.
 fn cast_num(v: &Value) -> Result<f64, EvalErr> {
     match v {
         Value::Num(n) => Ok(*n),
         Value::Bool(b) => Ok(if *b { 1.0 } else { 0.0 }),
         Value::Str(s) => s.trim().parse::<f64>().map_err(|_| EvalErr::Cast),
+        Value::Date(_) => Err(EvalErr::Hard(XledError::Correction(
+            "num() on a date has no meaning — xled has no serial numbers. Use year(), \
+             month(), day(), or subtract two dates for a count of days."
+                .into(),
+        ))),
     }
 }
 
@@ -386,5 +509,44 @@ fn cast_bool(v: &Value) -> Result<bool, EvalErr> {
             "false" => Ok(false),
             _ => Err(EvalErr::Cast),
         },
+        Value::Date(_) => Err(EvalErr::Hard(XledError::Correction(
+            "bool() on a date has no meaning — compare it instead: \
+             date([col]) >= date(\"2024-01-01\")"
+                .into(),
+        ))),
+    }
+}
+
+/// The date the run started, fixed once for the whole run.
+///
+/// Per-row evaluation would let a long run straddle midnight and stamp two different "today"s
+/// into one column. That is a correctness property, not an optimization.
+fn today() -> NaiveDate {
+    static TODAY: OnceLock<NaiveDate> = OnceLock::new();
+    *TODAY.get_or_init(|| chrono::Local::now().date_naive())
+}
+
+/// Move a date by a whole number of days. A fractional offset skips the cell rather than
+/// truncating silently: there is no time of day here to carry the remainder into.
+fn offset_days(d: NaiveDate, n: f64) -> Result<Value, EvalErr> {
+    if !n.is_finite() || n.fract() != 0.0 {
+        return Err(EvalErr::Cast);
+    }
+    chrono::TimeDelta::try_days(n as i64)
+        .and_then(|delta| d.checked_add_signed(delta))
+        .map(Value::Date)
+        .ok_or(EvalErr::Cast)
+}
+
+/// Operand of a date function: must already be a date, same no-coercion rule as `require_num`.
+/// A missing cast is wrong on every row equally, so it halts with the corrected form instead
+/// of tallying one skip per row.
+fn require_date(v: &Value, fname: &str) -> Result<NaiveDate, EvalErr> {
+    match v {
+        Value::Date(d) => Ok(*d),
+        _ => Err(EvalErr::Hard(XledError::Correction(format!(
+            "{fname}() needs a date, and xled does not coerce one — cast first: \
+             {fname}(date([col]))"
+        )))),
     }
 }

@@ -4,6 +4,7 @@
 //! The binary (`main.rs`) is a thin CLI/REPL over this surface; tests drive it directly.
 
 pub mod ast;
+pub mod date;
 pub mod errors;
 pub mod exec;
 pub mod expr;

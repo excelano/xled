@@ -117,9 +117,13 @@ unary       ::= "-" unary | atom
 atom        ::= number | string | bool | name | call | "(" expr ")"
 call        ::= fnName "(" ( expr ( "," expr )* )? ")"
 
-fnName      ::= "num" | "bool" | "len" | "left" | "right" | "mid"
-              | "substr" | "round" | "default" | "coalesce" | "if"
+fnName      ::= lowerWord                        (* any; the library is expr-grammar.md's *)
 ```
+
+A function name is syntactically just a lowercase word followed by `(` — which is why columns must
+be bracketed. Whether that word names a function the library has is a *semantic* question, answered
+with a correction that names the intended form, not a parse failure. Enumerating the library here
+would only give it a second place to go stale.
 
 Columns are **always bracketed in expr** (a bare identifier is a function name — expr-grammar). The
 only difference between an address-position `comparison` and an expr-position comparison is which
@@ -137,6 +141,7 @@ cell        ::= [A-Z]+ [0-9]+                     (* e.g. B2 — fused positiona
 rownum      ::= [0-9]+
 number      ::= "-"? [0-9]+ ( "." [0-9]+ )?
 bool        ::= "true" | "false"
+lowerWord   ::= [a-z]+                           (* a function name; "true"/"false" bind first *)
 cmpOp       ::= "==" | "!=" | "<=" | ">=" | "<" | ">"
 DELIM       ::= any one character                (* sed-style; same char closes the field *)
 

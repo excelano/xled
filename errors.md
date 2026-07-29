@@ -144,6 +144,12 @@ undo is not available yet: the buffer is mutable and reopening the file is the
 current reset. Save in stages so you can reload a known-good state — undo is planned.
 ```
 
+**Number formatting via `text()`.** The name is Excel's TEXT and the date half ships; the number half has its own token language and is a later slice. Reserving the name is the point — a real future capability should say "not yet", not "unknown function".
+```
+text() formats dates. Number formatting — thousands separators, currency, fixed
+decimals — is a later xled. For decimal places now: round([col], 2).
+```
+
 ### Corrections — legal form, unintended meaning
 
 Not boundaries; the user is inside the grammar but a step from a footgun. Name what they wrote, what it does, and the intended form. These already live as rules in `semantics.md` (10, 7, 6) and `composition-grammar.md` (6); this is their shared voice.
@@ -177,6 +183,29 @@ cast: num([qty]) < num([reorder]).
 **Cast-failure tally** (semantics rule 6). Lenient, non-blocking; the standard voice for the warning shown after a run.
 ```
 3 cells skipped in [amount] (not numeric): rows 12, 88, 415 — left unchanged.
+```
+
+**Ambiguous date** (expr-grammar, Dates). The one place a cast failure halts instead of tallying, because the failure is in the command and is identical on every row. Name both readings; do not pick one.
+```
+03/04/2024 is ambiguous: both DD/MM/YYYY and MM/DD/YYYY parse it.
+Say which one: date([col], "DD/MM/YYYY")
+```
+
+**Unspelled date layout.** Same halt where only one layout reads the value: accepting it would mean deciding the layout row by row, which is the same guess made more quietly.
+```
+15/07/2023 is not ISO 8601, and date() does not guess a layout.
+Say it: date([col], "DD/MM/YYYY")
+```
+
+**A date function without the cast.** No-coercion applied to the fourth type; wrong on every row, so it halts with the corrected form rather than tallying.
+```
+year() needs a date, and xled does not coerce one — cast first: year(date([col]))
+```
+
+**`num()` on a date.** Excel would hand back a serial number; serials are the damage xled repairs (`intake-taxonomy.md`), not a value to give away. Name the four things the caller actually wanted.
+```
+num() on a date has no meaning — xled has no serial numbers. Use year(), month(),
+day(), or subtract two dates for a count of days.
 ```
 
 ---

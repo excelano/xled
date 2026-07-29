@@ -24,7 +24,8 @@ The authoritative sources for xled's behavior are the binary itself (`xled --hel
 and the [README](https://github.com/excelano/xled/blob/main/README.md); if anything
 here conflicts with them, they win. These recipes assume the complete expression-function
 library — `upper` `lower` `proper`, `trim`/`ltrim`/`rtrim`, `lpad`/`rpad`, `abs` `floor`
-`ceil` `mod` `min` `max`. **An "unknown function" error means the installed copy predates
+`ceil` `mod` `min` `max`, and the date functions `date` `text` `year` `month` `day`
+`weekday` `today`. **An "unknown function" error means the installed copy predates
 one of them**; upgrade with `sudo apt install --only-upgrade xled` (Debian/Ubuntu),
 `brew upgrade xled` (macOS), or by re-running the install one-liner from the README.
 
@@ -97,8 +98,8 @@ xled refuses with a correction naming the right form rather than guessing.
 
 ## Expressions and the type model (the part agents get wrong)
 
-`= expr` computes one column. Values are **string, number, or bool**, and there is
-**no automatic coercion**. This is the whole point — it is what keeps leading zeros
+`= expr` computes one column. Values are **string, number, bool, or date**, and there
+is **no automatic coercion**. This is the whole point — it is what keeps leading zeros
 and long identifiers intact — so respect it:
 
 - **Arithmetic and numeric comparison require an explicit `num()` cast.** `[a] * [b]`
@@ -112,13 +113,19 @@ and long identifiers intact — so respect it:
   and **`mod` takes the dividend's sign** (`mod(-3,5)` is `-3`, following awk not Excel).
 - A **failed cast is non-halting**: that cell is left untouched and a tally goes to
   stderr. So a bad value in one row won't abort the whole run.
+- **Dates need `date()` and never a guessed layout.** A bare `date([col])` reads ISO
+  only; anything else must be spelled out — `date([col], "DD/MM/YYYY")`. A non-ISO
+  value under a bare `date()` **halts** (the command is under-specified, and equally
+  so on every row) rather than skipping; only a value no layout can read takes the
+  normal skip. Dates always write back as ISO, so the cast alone normalizes a column.
 - There is **no `row()`** function — a computed cell can't read its own position; use
   the `--number` flag if you need logical row numbers.
 
 Function library (full signatures in `reference.md`): text — `len left right mid
 substr trim ltrim rtrim lpad rpad`; case — `upper lower proper` (same Unicode fold as
-`s///`'s `\U`/`\L`); numbers — `round abs floor ceil mod min max`; casts and logic —
-`num bool default coalesce if`. Concatenate with `&`.
+`s///`'s `\U`/`\L`); numbers — `round abs floor ceil mod min max`; dates — `date text
+year month day weekday today`; casts and logic — `num bool default coalesce if`.
+Concatenate with `&`.
 
 ## Worked recipes
 
@@ -135,6 +142,13 @@ xled '[zip] = lpad([zip], 5, "0")' ids-zips.csv
 # normalize a whole column's case (compute form; the s/// form is `s/.*/\L&/`)
 xled '[email] = lower([email])' contacts.csv
 xled '[name]  = proper(trim([name]))' contacts.csv    # tidy casing + stray spaces
+
+# normalize a British-formatted date column to ISO (the cast alone does it)
+xled '[hired] = date([hired], "DD/MM/YYYY")' staff.csv
+
+# tenure in days, and a year column to group on
+xled '[days] = today() - date([hired])
+[year] = year(date([hired]))' staff.csv
 
 # fill merged-cell blanks down from the value above
 xled '[Vendor] fill down' fill-down.csv

@@ -195,21 +195,38 @@ Both shape the output of a read (a bare address or `show`); on a script that cha
 
 ## Expressions
 
-`= expr` is the compute layer. Values are one of three types — string, number, bool — and there is **no automatic coercion**: arithmetic requires numbers, and you cast explicitly with `num()` or `bool()`. That is what keeps leading zeros and long identifiers intact. A cast that fails is non-halting: the cell is left untouched and a tally tells you how many were skipped.
+`= expr` is the compute layer. Values are one of four types — string, number, bool, date — and there is **no automatic coercion**: arithmetic requires numbers, and you cast explicitly with `num()`, `bool()`, or `date()`. That is what keeps leading zeros and long identifiers intact. A cast that fails is non-halting: the cell is left untouched and a tally tells you how many were skipped.
 
 ```sh
 [total]  = round(num([price]) * [qty], 2)        # arithmetic, money-rounded
 [full]   = [first] & " " & [last]                # concatenation
 [name]   = proper(trim([name]))                  # tidy casing and stray spaces
 [zip]    = lpad([zip], 5, "0")                   # restore a stripped leading zero
+[hired]  = date([hired], "DD/MM/YYYY")           # normalize a date column to ISO
+[days]   = today() - date([hired])               # tenure, in days
 [low]    = num([qty]) < num([reorder])           # a boolean column
 [owner]  = default([owner], "Unassigned")        # fill blanks
 [flag]   = if(num([qty]) < num([reorder]), "REORDER", "ok")
 ```
 
-The library groups into text handling — `len left right mid substr trim ltrim rtrim lpad rpad` for measuring, slicing, stripping whitespace, and padding to a fixed width — case-folding — `upper lower proper`, the same Unicode dialect as `s///`'s `\U`/`\L` so the two never disagree — numbers — `round abs floor ceil mod min max` — and casts and logic — `num bool default coalesce if`. Padding never truncates: `lpad` on a value already at or past the width returns it unchanged, because dropping characters is the same betrayal as coercion. `mod` takes the dividend's sign (`mod(-3, 5)` is `-3`), following awk rather than Excel, and a divide-by-zero leaves the cell untouched. Comparisons are string-wise unless both sides are cast with `num()` — `"9" > "10"` is true lexically, which is *not* numeric order — because auto-numifying would smuggle back exactly the surprises the stringly model exists to prevent.
+The library groups into text handling — `len left right mid substr trim ltrim rtrim lpad rpad` for measuring, slicing, stripping whitespace, and padding to a fixed width — case-folding — `upper lower proper`, the same Unicode dialect as `s///`'s `\U`/`\L` so the two never disagree — numbers — `round abs floor ceil mod min max` — dates — `date text year month day weekday today` — and casts and logic — `num bool default coalesce if`. Padding never truncates: `lpad` on a value already at or past the width returns it unchanged, because dropping characters is the same betrayal as coercion. `mod` takes the dividend's sign (`mod(-3, 5)` is `-3`), following awk rather than Excel, and a divide-by-zero leaves the cell untouched. Comparisons are string-wise unless both sides are cast with `num()` — `"9" > "10"` is true lexically, which is *not* numeric order — because auto-numifying would smuggle back exactly the surprises the stringly model exists to prevent.
 
 Numbers serialize at full `f64` precision, so any currency or fixed-decimal column must be wrapped in `round(…, d)`; xled never rounds on write, because inventing precision the user didn't ask for is the same betrayal as silent coercion.
+
+### Dates
+
+Dates are a real type, and they always write as ISO 8601. That is what lets a single cast normalize a column — `[hired] = date([hired], "DD/MM/YYYY")` needs no formatting call — and it means the result still sorts correctly anywhere downstream that treats it as text. Format tokens are Excel's (`YYYY MMMM MMM MM M DDDD DDD DD D`), not strftime's, because that is the dialect the audience already knows.
+
+The rule worth knowing before you start is that **xled never guesses DD/MM versus MM/DD**. A bare `date([col])` reads ISO and nothing else — including the basic form `20240304` and a timestamp truncated to its date. Anything else has to be spelled out, and if you don't, the error names the readings rather than picking one:
+
+```
+03/04/2024 is ambiguous: both DD/MM/YYYY and MM/DD/YYYY parse it.
+Say which one: date([col], "DD/MM/YYYY")
+```
+
+That halt is deliberate and it is different from a skipped cell. A value no layout can read is bad data: the cell is left alone and tallied, like any other cast failure. A value that some layout *can* read means the command is under-specified, which is wrong on every row equally — so it stops once instead of burying the fix in a warning count.
+
+Subtracting two dates gives a number of days; adding or subtracting a number gives a date. `year` `month` `day` pull components out for grouping, `weekday` returns the ISO day of week (1 = Monday, not Excel's 1 = Sunday), `text(d, fmt)` renders a date back out under any Excel format, and `today()` is fixed once for the whole run so a long job can't straddle midnight and stamp two different days into one column. Month arithmetic is deliberately absent: "January 31 plus one month" has no correct answer, only policies, and picking one quietly would be the same mistake as guessing the layout.
 
 ## Input encoding
 

@@ -68,12 +68,13 @@ names the right form — it does not guess.
 
 ## Expression language (`= expr`)
 
-Three value types: **string**, **number** (`f64`), **bool**. **No implicit
-coercion.** Operators: `+ - * /` (numbers only — cast first), `&` (string concat),
-comparisons `== != < <= > >=`. Comparisons are **string-wise** unless both operands
-are `num()`-cast, so `"9" > "10"` is `true` lexically; cast to compare numerically.
-A failed cast is **non-halting**: the offending cell is left unchanged and a tally is
-printed to stderr.
+Four value types: **string**, **number** (`f64`), **bool**, **date**. **No implicit
+coercion.** Operators: `+ - * /` (numbers only — cast first; `+` and `-` also do date
+arithmetic), `&` (string concat), comparisons `== != < <= > >=`. Comparisons are
+**string-wise** unless both operands are `num()`-cast or both are dates, so `"9" >
+"10"` is `true` lexically; cast to compare numerically. A failed cast is
+**non-halting**: the offending cell is left unchanged and a tally is printed to
+stderr.
 
 ### Function library
 
@@ -116,6 +117,35 @@ Casts and logic:
 | `default(v, fallback)` | `fallback` when `v` is empty, else `v` |
 | `coalesce(a, b, …)` | first non-empty argument |
 | `if(cond, then, else)` | branch on a bool `cond` |
+
+Dates (a real type; always serialized ISO 8601):
+
+| Signature | Returns |
+|---|---|
+| `date(s)` | parse **ISO only** — `2024-03-04`, the basic form `20240304`, or either with a time, truncated to the date |
+| `date(s, fmt)` | parse under exactly `fmt` |
+| `text(d, fmt)` | render a date under `fmt`; on a number it reports "not yet" and points at `round()` |
+| `year(d)` / `month(d)` / `day(d)` | component as a number |
+| `weekday(d)` | **ISO** day of week — 1 = Monday … 7 = Sunday, *not* Excel's 1 = Sunday |
+| `today()` | the date the run started, fixed once for the whole run |
+
+Format tokens are Excel's, case-insensitive, everything else literal, `\` escapes:
+`YYYY` `YY` `MMMM` (March) `MMM` (Mar) `MM` (03) `M` (3) `DDDD` (Monday) `DDD` (Mon)
+`DD` (04) `D` (4). Month and day names are English. `YY` reads on Excel's pivot
+(00–29 → 2000s, 30–99 → 1900s), so prefer `YYYY`.
+
+`date` and `text` do **not** coerce: `year([hired])` on a string column is a program
+error and halts with the corrected form (`year(date([col]))`), it does not skip rows.
+
+**xled never guesses DD/MM versus MM/DD.** A bare `date()` on a non-ISO value halts
+and names the layouts that would read it — `03/04/2024 is ambiguous: both DD/MM/YYYY
+and MM/DD/YYYY parse it.` A value *no* layout reads is bad data and takes the normal
+non-halting skip instead. Under-specified command → halt once; bad cell → skip and
+tally.
+
+Arithmetic: `date - date` → days, `date ± number` → date. Two dates compare
+chronologically. Month arithmetic (`EDATE`/`EOMONTH`) is deliberately absent — "Jan 31
+plus one month" has only policies, no correct answer. No times, no timezones.
 
 There is **no `row()`** — a computed cell cannot read its own row index (that would
 break value-in/value-out). Use the `--number` flag to emit logical row numbers.

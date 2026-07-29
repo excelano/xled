@@ -67,7 +67,7 @@ Severity legend: **common** (most real exports) · **occasional** · **rare**. A
 |---|---|---|---|
 | Format chars in numbers | `$`, thousands `,`, `%`, paren-negatives `(45)` | `s///` + `cast` (the headline use case) | common |
 | Excel-mangled numbers | scientific notation for long IDs (`1.2E+11`), serial dates (`44197`), **stripped leading zeros** | **upstream** — likely lost before CSV; re-export as text | common |
-| Dates, many formats | 7+ formats in one column; US vs EU ambiguity; serials leaking through | `s///` capture-reorder to ISO; ambiguity needs a human call | common |
+| Dates, many formats | 7+ formats in one column; US vs EU ambiguity; serials leaking through | `date([col], "DD/MM/YYYY")` — the cast normalizes to ISO on write; ambiguity is refused rather than guessed, which is the human call being *asked for* rather than skipped | common |
 | Smart punctuation | curly quotes, em/en dashes, non-breaking spaces from Excel/Windows autocorrect *(seen)* | `s///` to normalize | common |
 | Encoding mismatch | UTF-8 vs Windows-1252, mojibake, BOM | BOM via `tolerant read`; re-encode is **upstream** | occasional |
 | Whitespace | trailing spaces, non-breaking space `U+00A0`, tabs inside cells | `s///` trim/normalize | common |

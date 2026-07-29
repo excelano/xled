@@ -156,7 +156,7 @@ None of these coerce. `year([hired])` on a string column is a missing cast, wron
 
 **Times and timezones.** A `DateTime` would need offset rules, DST, and a formatting dialect in which Excel's `mm` ambiguity finally bites. Truncating a timestamp covers the common created/modified column without opening any of it.
 
-**Aggregates over a date column** — earliest, latest, count by month — are xql's, unchanged.
+**Aggregates over a date column** — earliest, latest, count by month — are xql's, unchanged. The two agree on what a date is: xql's loader reads the same ISO forms and likewise refuses to guess a layout, so a column normalized here groups correctly there. The one asymmetry to know when chaining is that **xled truncates a timestamp to its date and xql keeps the time.** Running a created/modified column through `date()` therefore discards the clock, which is the intended behavior of a tool with no time type but is worth knowing before piping the result on.
 
 ## What this layer does not do
 

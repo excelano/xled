@@ -22,12 +22,11 @@ command, and it rewrites those cells — or previews the result before writing.
 
 The authoritative sources for xled's behavior are the binary itself (`xled --help`)
 and the [README](https://github.com/excelano/xled/blob/main/README.md); if anything
-here conflicts with them, they win. These recipes assume **xled 0.4.0 or newer** —
-the release that completed the expression-function library (`upper` `lower` `proper`
-`trim`/`ltrim`/`rtrim` `lpad`/`rpad` `abs` `floor` `ceil` `mod` `min` `max`). Check
-with `xled --version`; if an older copy reports an "unknown function", upgrade with
-`sudo apt install --only-upgrade xled` (Debian/Ubuntu), `brew upgrade xled` (macOS),
-or by re-running the install one-liner from the README.
+here conflicts with them, they win. These recipes assume the complete expression-function
+library — `upper` `lower` `proper`, `trim`/`ltrim`/`rtrim`, `lpad`/`rpad`, `abs` `floor`
+`ceil` `mod` `min` `max`. **An "unknown function" error means the installed copy predates
+one of them**; upgrade with `sudo apt install --only-upgrade xled` (Debian/Ubuntu),
+`brew upgrade xled` (macOS), or by re-running the install one-liner from the README.
 
 ## The one rule that decides whether xled is the right tool
 

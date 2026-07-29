@@ -1,4 +1,4 @@
-# Composition grammar — candidate draft
+# Composition grammar
 
 The open problem: how a row component and a column component combine into one address, making both the fused A1 form (`B2:C3`) and the split form (rows `/re/`, column `[status]`) legal under one grammar, with a command appended. Two candidates, rendered against the batteries, then scored for compactness and muscle-memory fidelity.
 
@@ -79,7 +79,7 @@ C2's only advantage is preserving ed's single-letter `d`/`p`, bought with visual
 
 **Recommendation: build on C1.** It is plausibly the compact spot itself, not just a step toward it.
 
-## Resolved (slice 2, 2026-06-21 — direction committed)
+## Settled — addressing and precedence
 
 1. **Precedence / grouping** — adopt Excel's verbatim: `:` (range) > ` ` (intersection) > `,` (union), with **parentheses for grouping**, exactly as Excel allows. So `[price],[cost] 2:4` binds as `[price] , ([cost] 2:4)`; to mean "(both columns) ∩ rows" write `([price],[cost]) 2:4`. Faithful and escape-hatchable.
 2. **Comparison token** — a single comparison (`[qty] < [reorder]`) is a row-set atom; combinators (`and`/`or`/`not`) are a hard error pointing at xql. Parentheses are optional but recommended when intersecting, for the eye: `([qty]<[reorder]) [status] = "low"`.
@@ -88,7 +88,7 @@ C2's only advantage is preserving ed's single-letter `d`/`p`, bought with visual
 5. **Column-scoped regex** — `[col]~/re/` (and `[col]!~/re/`) select rows where that column matches / doesn't, awk-faithful. Bare `/re/` is the any-cell match. Both are row-set atoms.
 6. **Comparison operators** — `==` `!=` `<` `>` `<=` `>=`. Equality is `==` (awk), reserving bare `=` exclusively for the assignment sigil so `[price] = [cost]` (assign) and `[price] == [cost]` (filter) never collide. One comparison per atom still holds; combinators error and point at xql.
 
-## Resolved (slice 3, 2026-06-21 — full battery rendered)
+## Settled — operands, escapes, and the replacement dialect
 
 7. **Comparison operands are exprs, string-wise unless cast** — `num([amount]) < 0` legal; `[qty]<[reorder]` is lexicographic, `num()`-cast for numeric order. Shares the operand grammar and operator set with expr (`expr-grammar.md`).
 8. **Bracket-escape is `]]`** — a `]` inside a bracketed name is doubled.

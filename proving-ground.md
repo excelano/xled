@@ -222,7 +222,7 @@ The grammar is proven when: every Part B item has a form that reads natural to t
 
 ---
 
-# Slice-3 render (2026-06-21)
+# Render — Parts A and B
 
 The full battery rendered against the locked grammar (`composition-grammar.md` + `semantics.md` + `expr-grammar.md`). Verdict: **the address/composition grammar survived intact** — every Part A seam resolved with no special case. All breakage clustered in two layers that were hand-waved as "thin" and are not: the `s///` replacement dialect and the `= expr` compute layer. Both are now specified (sed-faithful replacement interpreter; `expr-grammar.md`). This section is the answer key and doubles as the cheat-sheet.
 
@@ -272,7 +272,7 @@ The full battery rendered against the locked grammar (`composition-grammar.md` +
 
 **B13 IO/pipe** — `xled 'cmd' file.csv` · stdin→stdout · byte-for-byte round-trip (csv crate + stringly) · TSV same grammar · pipe · ragged · wide · deep. All design contracts, grammar-clean.
 
-## What slice 3 changed
+## What the full render changed
 
 1. **`s///` gets a sed-faithful replacement interpreter** — `\1`–`\9`, `&`, `\U \L \u \l \E` — written over the standard `regex` crate's captures (no crate does this; `sedregex` is a `$1` wrapper, unmaintained; `fancy-regex` is for *pattern* backrefs we don't need and costs linear-time). Solves B3 + B4 together.
 2. **`expr-grammar.md`** — the compute layer is specified: value model, operators/precedence, and the function library (`num bool len left right mid round default coalesce if`), all derived from B9/B10/B8.
@@ -283,7 +283,7 @@ Still parked: **append-row** (design from battery evidence), **bulk header trans
 
 ---
 
-# Slice-5 render (2026-06-22) — Part C, structural intake
+# Render — Part C, structural intake
 
 The intake primitives (`crop`, `header N`, `drop blanks`, `fill down`, `describe`) rendered against `fixtures/messy/`, the synthetic distillation of a real 16-file `.xlsx` corpus (validation in `intake-taxonomy.md`; client specifics out-of-repo in `~/xled-corpus/`). Verdict: **the primitives carry the whole structural taxonomy, and they are all addressing** — no detection magic, no reshaping. Three composition seams surfaced (crop/drop-blanks ordering, multi-table per session, header-after-crop); all three resolve inside the existing grammar with no new rule. The cell-cleaning that *follows* intake is Part A/B's job and is not re-rendered here.
 
@@ -303,7 +303,7 @@ The intake primitives (`crop`, `header N`, `drop blanks`, `fill down`, `describe
 | C10 multi-value newline cell (`multivalue.csv`) | normalize in place `[Amount] s/[$,]//g`; the newline-stacked `[Contract IDs]` **stays one cell** | **clean for in-place; splitting → out** — exploding one cell into N rows is reshaping (the A11 logical-cell rule already says the embedded newline is one value) |
 | C11 advisory region report (all messy fixtures) | `describe` → e.g. *"rows 1–3 preamble · row 4 blank · header row 5 · data 6–8 · blank tail 9–10"* | **clean as advice** — `describe` reports the best-guess regions and the totals/section-banner rows it suspects, and **never acts**; the human turns it into a `crop`/`header`/`del`. Output format locked as a region summary, not a patch |
 
-## What slice 5 settled
+## What Part C settled
 
 1. **The structural taxonomy is validated.** A 16-file real-corpus pass confirmed every Group 1–4/6 prediction in human-authored layouts, including cases promoted from rare/untagged (side-by-side tables, totals rows, stacked tables, forward-fill, leading spacer column). Details and the openpyxl conversion caveat are in `intake-taxonomy.md`; specifics out-of-repo.
 
@@ -315,4 +315,4 @@ The intake primitives (`crop`, `header N`, `drop blanks`, `fill down`, `describe
 
 5. **New value-pathology rows folded in:** multi-value newline cell (→ normalize in place, split is out) and float-precision noise (→ `round`/`s///`). Sheet selection is named as **upstream** (an `xlsx2csv --sheet` concern, before a CSV exists).
 
-Nothing in Part C demanded new grammar — the intake primitives are addressing plus `del`, and they slot under the same `reference command` shape as everything else. The remaining design step is **slice 6 (EBNF)**, then implementation.
+Nothing in Part C demanded new grammar — the intake primitives are addressing plus `del`, and they slot under the same `reference command` shape as everything else. The formal grammar that covers them is in `ebnf.md`.

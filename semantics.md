@@ -1,6 +1,6 @@
 # Command set & execution semantics
 
-Slice 2 locks. The address grammar (Excel reference algebra + `[name]`/`/re/` atoms) lives in `composition-grammar.md`; this is what follows the address — the commands — and how they execute over a buffer. Top-level shape is always `reference command`.
+The address grammar (Excel reference algebra + `[name]`/`/re/` atoms) lives in `composition-grammar.md`; this is what follows the address — the commands — and how they execute over a buffer. Top-level shape is always `reference command`.
 
 ## Command set
 
@@ -53,7 +53,7 @@ Two kinds, lexically distinct from reference atoms so the space-intersection ope
 9. **Commands apply sequentially; the buffer is mutable; save is deliberate.** Each command fully applies before the next (REPL or script). Nothing is written to disk until an explicit save. Operations should be previewable before commit (the trust requirement).
 10. **`del` needs a clean rank.** Deleting requires whole rows or whole columns — a partial rectangle has no meaning as a deletion. `2:4 [status] del` is an error ("can't delete a partial region — clear it with `s/.*//`, or address whole rows/columns"); `2:4 del` and `[status] del` are fine.
 
-## Resolved at slice-3 render (2026-06-21)
+## Decisions the compute layer forced
 
 - **`s///` replacement dialect is sed's, written by xled** — `\1`–`\9`, `&`, `\U \L \u \l \E` over the `regex` crate's captures. No crate provides it. Solves capture-rearrange (B3) and case (B4) together; case/trim stay in `s///`.
 - **The compute layer is specified** in `expr-grammar.md` (value model, operators/precedence, function library). The "thin compute layer" was load-bearing for B9/B10/B8 and is no longer hand-waved.
@@ -62,13 +62,13 @@ Two kinds, lexically distinct from reference atoms so the space-intersection ope
 - **Bracket-escape is `]]`** — a header containing `]` is addressed by doubling it (`[notes [draft]]]`).
 - **Pad-on-write `""`** for assignment past a short row's width (rule 7).
 
-## Resolved at slice-2 review (2026-06-21)
+## Decisions the command set forced
 
 - **Equality is `==`, assignment is bare `=`.** awk-faithful; resolves the overload that made `[price] = [cost]` ambiguous. Full comparison set `== != < > <= >=` lives in `composition-grammar.md`.
 - **`rename` takes rest-of-line** so spaced/sla­shed/parenthesized headers are nameable.
 - **`fill` is down-only in v1.** Merged-header case → rename-by-letter, not across-fill (taxonomy updated to match).
-- **Cast failure stays lenient + tally** (David confirmed). Strict-halt is a later opt-in.
+- **Cast failure stays lenient + tally**. Strict-halt is a later opt-in.
 
 ## Still open — row insert/append
 
-The only structural operation assignment doesn't cover (assignment creates *columns*, not rows). **Deferred to the Part B/C battery to design, not to guess now** (David's call). xled edits existing rows; row *generation* leans upstream — but David expects a real need will surface (e.g. appending a record or a computed totals row), and if the battery shows it more than once we design `append` against the actual shapes rather than inventing syntax in the dark. Until then a row-append attempt gets the transient "not available yet" refusal in `errors.md` (with the `printf … >> file.csv` workaround), not a permanent rejection.
+The only structural operation assignment doesn't cover, since assignment creates *columns*, not rows. xled edits existing rows; row *generation* leans upstream. The syntax is deliberately undesigned rather than guessed: if the conformance battery shows a real need more than once (appending a record, a computed totals row), `append` gets designed against those actual shapes. Until then a row-append attempt gets the transient "not available yet" refusal in `errors.md`, with the `printf … >> file.csv` workaround, rather than a permanent rejection.

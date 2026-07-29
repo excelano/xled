@@ -106,7 +106,7 @@ The whole catalog reduces to a short, deterministic primitive set — no new mag
 
 Everything else — irreversible Excel damage, multi-row-header collapse, unpivoting, subtotal recompute, merging stacked tables — is **upstream** or **out**, and saying so plainly is as much a part of the design as the primitives. One boundary the corpus added: **sheet selection is upstream too.** Real workbooks are multi-sheet and the *active* sheet is often a scratch/pilot tab, not the table you want; picking the sheet happens at `xlsx2csv --sheet`, before a CSV exists. xled operates on one CSV; "which sheet" is never its question.
 
-## Validated against the corpus (slice 5, 2026-06-22)
+## Validated against a real corpus
 
 Converted a 16-file sample of a real client `.xlsx` corpus (findings out-of-repo in `~/xled-corpus/CORPUS-FINDINGS.md`; nothing real entered this repo). The structural taxonomy held up point-for-point — every Group 1–4/6 prediction appeared in real human-authored layouts, and several "rare"/untagged cases were confirmed and promoted (above). Synthetic distillations live in `fixtures/messy/`; the Part C battery is rendered in `proving-ground.md`.
 

@@ -2,7 +2,7 @@
 
 Scope: the RHS of `= expr` assignment, and the operands of address-comparison atoms. The address/composition grammar lives in `composition-grammar.md`; text rewriting lives in `semantics.md` under `s///`. This file is everything that computes a *value*: arithmetic, concatenation, comparison-as-bool, and a small function library.
 
-Why it earns its own spec: slice 3 (rendering `proving-ground.md` Part B against the locked grammar) showed the "thin compute layer" is not thin. It carries B9 (compute/derive), B10 (conditional/blank), the join half of B8, and every comparison scope in Part A. The library below is **derived from the battery's actual operations, not invented** — each function cites the item that forces it.
+Why it earns its own spec: rendering `proving-ground.md` Part B against the locked grammar showed the "thin compute layer" is not thin. It carries B9 (compute/derive), B10 (conditional/blank), the join half of B8, and every comparison scope in Part A. The library below is **derived from the battery's actual operations, not invented** — each function cites the item that forces it.
 
 ## The layered split (load-bearing)
 
@@ -39,7 +39,7 @@ Highest → lowest: `fn()` / atom  >  unary `-`  >  `* /`  >  `+ -`  >  `&` (con
 - `&` concatenates strings — Excel's concat operator: `[first] & " " & [last]`.
 - Comparison `== != < > <= >=` — string-wise unless `num()`-cast; yields a bool. This is the *same* operator set and operand grammar as the address-comparison atom in `composition-grammar.md`: in address position it selects rows, in RHS position it produces a bool value.
 
-**No boolean `and`/`or`/`not` operators in expr** (locked, David 2026-06-21 — "the slippery slope out of our lane"). Multi-condition logic nests through `if()`/`coalesce()`; genuine multi-predicate filtering is xql's job. This keeps expr consistent with refusing combinators in *address* position (the slice-2 boundary).
+**No boolean `and`/`or`/`not` operators in expr** — that is the slippery slope out of xled's lane. Multi-condition logic nests through `if()`/`coalesce()`; genuine multi-predicate filtering is xql's job. This keeps expr consistent with refusing combinators in *address* position, which is the same boundary drawn in `composition-grammar.md`.
 
 ## Function library (v1 — proposed, derived from Part B)
 

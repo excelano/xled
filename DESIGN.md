@@ -1,6 +1,6 @@
 # xled — design
 
-**Status:** Design draft, 2026-06-21. Name: `xled` (excel + ed, pronounced "sled"); confirmed available on crates.io.
+**Name:** `xled` — excel + ed, pronounced "sled".
 
 **One line:** sed and awk for tabular data — a live-buffer editor that applies regex transformations to spreadsheet-style ranges over CSV and other delimiter-separated files.
 

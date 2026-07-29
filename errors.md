@@ -131,7 +131,7 @@ number it should hold has to be recomputed at the source.
 
 Real features still being designed against real cases, not boundaries. Transient wording, no version number (convert-on-ship rule). Both below carry a usable workaround so "not yet" is never a full stop.
 
-**Append a row.** The one structural op assignment doesn't cover — assignment creates columns, not rows. Deferred to design from battery evidence (`semantics.md`, "Still open"); David expects a real need (appending a record, a computed totals row), so it is in flight, not refused forever.
+**Append a row.** The one structural op assignment doesn't cover — assignment creates columns, not rows. Deferred to design from battery evidence (`semantics.md`, "Still open") — appending a record or a computed totals row are the plausible shapes, so it is in flight rather than refused forever.
 ```
 appending a row is not available yet: xled edits existing rows; row generation is
 still being designed against real cases. For now append upstream —
@@ -181,7 +181,7 @@ cast: num([qty]) < num([reorder]).
 
 ---
 
-## Resolved (slice 4, 2026-06-21 — David gated all three)
+## Three refusals that are permanent
 
 1. **Column reorder is permanently "not supported"** (→ DuckDB). The invariant is *xled never reshapes the table*, and shape includes column *order*, not just row and column counts. Reorder is the camel's nose — "insert between" and "transpose" follow it — so order belongs to the file and the query engine; reordering for output is a one-line `SELECT`, and xled isn't an output formatter.
 

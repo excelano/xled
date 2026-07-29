@@ -1,14 +1,12 @@
 # EBNF — the whole xled grammar, formalized
 
-Slice 6. The five prior slices decided the language; this file makes it precise. It
-consolidates `composition-grammar.md` (addressing), `semantics.md` (commands), `expr-grammar.md`
-(compute), and the slice-5 intake verbs into **one grammar**, and uses the act of doing so as a
-check: anything the proving ground (`proving-ground.md`, Parts A/B/C) writes that this grammar
-cannot derive is either drift to fix or a real open call. Three such cases surfaced — recorded
-under *Findings* below, since slice 6 is consolidation, not a fresh design round.
+The whole of xled's grammar in one place. It consolidates `composition-grammar.md` (addressing),
+`semantics.md` (commands), `expr-grammar.md` (compute), and the intake verbs into **one grammar**.
+The consolidation doubles as a check: anything the proving ground (`proving-ground.md`, Parts
+A/B/C) writes that this grammar cannot derive is drift.
 
-This is a specification, not a decision. Where the consolidation exposed an unsettled point, it is
-flagged for David's gate, not resolved by fiat.
+This is the formal surface. The three split spec files above carry the prose rationale; where they
+disagree with this file, this file is the grammar.
 
 ## Meta-notation
 
@@ -214,66 +212,38 @@ boundary stated twice.
 ## Conformance — the proving ground is the test suite
 
 Every command line in `proving-ground.md` Parts A, B, and C must be derivable from this grammar.
-Walking all three batteries against the productions above: **all of Part A and Part B derive
-cleanly**, confirming slices 2–4 were internally consistent. Part C exposed three forms the
-*intake* work (slice 5) used that the *command set* (locked in slice 2) never absorbed — the
-Findings below. With those three productions added (`drop blanks`, `describe`, `fill down`), Part C
-derives cleanly too. The grammar and the battery now agree end to end.
+All three batteries derive cleanly against the productions above, and the grammar and the battery
+agree end to end.
 
 ---
 
-## Findings — drift slice 6 caught (David ratified all three, 2026-06-22)
+## Three productions that exist for a reason
 
-Consolidation did its job: it found three command forms that live in the slice-5 fixtures, taxonomy,
-and Part C render but were never added to `semantics.md`'s command set. None is a new feature; each
-is a form already in use that needed an official production. The productions above carry the
-ratified resolutions — `"fill" "down"?`, `"drop" "blanks" dropAxis?`, and `describe` are now law.
+Each of these looks like a small syntactic choice and is load-bearing. They are recorded here so a
+future change doesn't quietly undo one.
 
-1. **`drop blanks` and `describe` were never in the command set.** `semantics.md` locks
-   `del show crop header rename fill` — but slice 5 introduced `drop blanks` and `describe` as
-   first-class intake verbs (taxonomy, Part C). They are real and used; they were just never written
-   into the reserved-word list. *Resolution taken:* added both as reserved words (`drop` takes a
-   required `blanks` object; `describe` is bare). **Open sub-question:** does `drop blanks` name its
-   axis explicitly (`drop blanks rows` / `drop blanks cols`) or infer it? I made the axis an
-   *optional* qualifier — bare `drop blanks` trims fully-empty **edge** rows and columns (matches
-   seam 2: edge-only, crop-before-drop), `rows`/`cols` restricts it. Recommend keeping it optional;
-   the bare form is what the battery actually writes.
+1. **`drop blanks` takes an *optional* axis.** Bare `drop blanks` trims fully-empty **edge** rows and
+   columns; `rows`/`cols` restricts it to one axis. The bare form is what the conformance battery
+   writes, and edge-only matches the crop-before-drop seam.
 
-2. **`fill` vs `fill down`.** `semantics.md` locks the verb as bare `fill` (down-only in v1). The
-   slice-5 fixtures and Part C render write `fill down`. *Resolution taken:* `"fill" "down"?` — bare
-   `fill` and `fill down` are the same command, `down` an optional explicit direction. This keeps
-   semantics.md's lock valid, keeps the battery valid, and future-proofs `fill up`/`fill right` as a
-   non-breaking later addition rather than a v1 token we'd have to retrofit. Recommend adopting.
+2. **`fill down` is optional-direction sugar over bare `fill`.** `"fill" "down"?` makes both spellings
+   the same command. This future-proofs `fill up` and `fill right` as non-breaking later additions
+   rather than a token that would have to be retrofitted.
 
-3. **`y/set/set/` and `append` are reserved-not-grammar.** Transliterate (`y///`) is *deferred*
-   (semantics) and row-`append` is *not available yet* (errors.md, "still open"). Neither has a
-   production here — deliberately. They are named in the reserved space so a future slice slots them
-   in without collision, but committing syntax now would violate the "no syntax we haven't designed"
-   rule (errors.md, the version-number rule). Flagging only so their *absence* reads as intentional.
+3. **`y/set/set/` and `append` are reserved, not granted a production.** Transliterate is deferred
+   (`semantics.md`) and row-`append` is not available yet (`errors.md`). They are named in the
+   reserved space so a later addition slots in without collision; committing syntax now would violate
+   the no-syntax-we-haven't-designed rule. Their *absence* from the grammar is intentional.
 
 ---
 
-## Resolved (slice 6, 2026-06-22)
+## What this grammar settles
 
-- **One grammar, four sources reconciled.** Addressing, commands, compute, and intake now derive
-  from a single EBNF; the three split spec files remain the prose rationale, this is the formal
-  surface.
+- **One grammar, four sources reconciled.** Addressing, commands, compute, and intake all derive from
+  a single EBNF. The three split spec files remain the prose rationale; this is the formal surface.
 - **The combinator wall is structural, not a rule.** `comparison` operands are `concat` (below
-  comparison precedence), so `and`/`or` chaining is *inexpressible*, not merely rejected — the
-  cleanest possible statement of the slice-2 boundary.
-- **The three things EBNF can't hold are named and bounded** (ref/command munch, column/comparison
-  lookahead, `$` by position) — a parser implements exactly these three, nothing more.
-- **Scope contracts and the error catalog are the same boundary** — listed once as a table here,
-  voiced once as corrections in `errors.md`.
-- **Drift surfaced, not buried** — `drop blanks` / `describe` / `fill down` were used but
-  unlegislated; now written and **ratified (David, 2026-06-22)**: `fill down` is optional-direction
-  sugar over bare `fill` (future-proofs `fill up`/`right` non-breaking); `drop blanks` takes an
-  optional `rows`/`cols` qualifier, bare = trim empty edges; `y///`/`append` stay reserved-not-grammar.
-
-With the gate closed, **the design phase is complete.** Six slices: composition → commands →
-full render → errors → intake → EBNF. The grammar is locked, the proving ground is the
-conformance suite, the boundaries are voiced. Next is code.
-
-Next: implementation. The proving ground becomes executable conformance tests; the parser is built
-to this EBNF and looped (parser → evaluator) until Parts A/B/C are green. That is where `/loop`
-fits.
+  comparison precedence), so `and`/`or` chaining is *inexpressible* rather than merely rejected.
+- **The three things EBNF cannot hold are named and bounded** — ref/command munch, column/comparison
+  lookahead, and `$` by position. A parser implements exactly these three, nothing more.
+- **Scope contracts and the error catalog are one boundary.** Listed once as a table here, voiced once
+  as corrections in `errors.md`.

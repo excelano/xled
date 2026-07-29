@@ -20,9 +20,9 @@ struct Cli {
     script: Option<String>,
     /// input file (CSV/TSV); omit to read stdin
     file: Option<String>,
-    /// field delimiter (defaults to ',', or tab for a .tsv file)
-    #[arg(short, long)]
-    delim: Option<char>,
+    /// field delimiter, `\t` for tab (defaults to ',', or tab for a .tsv file)
+    #[arg(short, long, value_name = "CHAR", value_parser = xio::parse_delim)]
+    delim: Option<u8>,
     /// read the command script from a file instead of the inline argument (like `sed -f`).
     /// The lone positional is then the input file: `xled -f batch.xled data.csv`
     #[arg(short = 'f', long = "file", value_name = "SCRIPTFILE")]
@@ -81,7 +81,7 @@ fn normalize_in_place<I: IntoIterator<Item = String>>(args: I) -> Vec<String> {
 
 fn real_main(cli: Cli) -> xled::Result<()> {
     let has_header = !cli.no_header;
-    let delim = cli.delim.map(|c| c as u8);
+    let delim = cli.delim;
     let stdin_tty = io::stdin().is_terminal();
     let in_place = cli.in_place.as_deref();
     let opts = exec::RenderOpts { raw: cli.raw, number: cli.number };

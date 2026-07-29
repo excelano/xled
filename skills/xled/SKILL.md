@@ -51,7 +51,7 @@ xled file.csv                 # open the interactive REPL on a file
 One-shot sends data to **stdout** (clean, pipeable) and advisory notices to
 **stderr**, so `xled … file.csv > out.csv` is always safe.
 
-Useful flags: `-d/--delim <char>` (delimiter; defaults to `,`, or tab for `.tsv`),
+Useful flags: `-d/--delim <char>` (delimiter, `\t` for tab; defaults to `,`, or tab for `.tsv`),
 `-f/--file <script>` (read the script from a file), `--raw` (print just the addressed
 values, no header, no CSV quoting — for shell capture), `--number` (prefix each
 output row with its logical row number), `--no-header` (treat row 1 as data, when the

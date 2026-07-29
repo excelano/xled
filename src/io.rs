@@ -63,6 +63,29 @@ fn sniff_and_warn(path: &str) {
     }
 }
 
+/// Parse a `--delim` value: one ASCII character, or the escape `\t` for tab.
+/// The escape earns its keep because a literal tab is awkward to type and most
+/// shells swallow it; the rest of the family accepts it for the same reason.
+pub fn parse_delim(s: &str) -> std::result::Result<u8, String> {
+    let c = if s == "\\t" || s == "\t" {
+        '\t'
+    } else {
+        let mut chars = s.chars();
+        match (chars.next(), chars.next()) {
+            (Some(c), None) => c,
+            _ => {
+                return Err(format!(
+                    "expected one character (or \\t for tab), got {s:?}"
+                ))
+            }
+        }
+    };
+    if !c.is_ascii() {
+        return Err(format!("expected an ASCII character, got {c:?}"));
+    }
+    Ok(c as u8)
+}
+
 /// `\t` for `.tsv`, otherwise `,`.
 pub fn default_delim(path: &str) -> u8 {
     match Path::new(path).extension().and_then(|e| e.to_str()) {
@@ -87,4 +110,30 @@ pub fn serialize(buf: &Buffer) -> Result<String> {
 
     let bytes = wtr.into_inner().map_err(io_err)?;
     String::from_utf8(bytes).map_err(io_err)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_delim;
+
+    #[test]
+    fn tab_is_reachable_by_escape_and_literally() {
+        assert_eq!(parse_delim("\\t"), Ok(b'\t'));
+        assert_eq!(parse_delim("\t"), Ok(b'\t'));
+    }
+
+    #[test]
+    fn ordinary_single_characters_pass_through() {
+        assert_eq!(parse_delim(","), Ok(b','));
+        assert_eq!(parse_delim("|"), Ok(b'|'));
+        assert_eq!(parse_delim(";"), Ok(b';'));
+    }
+
+    #[test]
+    fn multi_character_and_non_ascii_are_refused() {
+        // The csv reader takes one byte, so a multi-byte char can't be a delimiter.
+        assert!(parse_delim("ab").is_err());
+        assert!(parse_delim("").is_err());
+        assert!(parse_delim("§").is_err());
+    }
 }

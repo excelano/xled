@@ -20,6 +20,18 @@ The release loop for a new version. Run it from a clean `main` with the working 
 
 5. **Add the .debs to the Excelano apt repo.** Download the two `.deb`s from the release, then in `~/excelano-apt/`: `add-deb.sh` each one → `rebuild.sh` (GPG-signs) → `updatesite excelano.com.apt -y`. **Dry-run the rsync first** (`rsync … --delete -n`) and confirm zero deletions before the real push — the apt pool is a superset of live, and a stray `--delete` wipe is the standing hazard. See `feedback_rsync_parent_wipes_subpath`.
 
+6. **Submit the winget manifest.** winget stores one manifest per version, so every release needs its own PR — there is no update in place. Run komac:
+   ```sh
+   komac update Excelano.xled --version 0.1.1 \
+     --urls https://github.com/excelano/xled/releases/download/v0.1.1/xled-x86_64-pc-windows-msvc.zip \
+     --submit
+   ```
+   It downloads the asset, computes the `InstallerSha256`, generates the manifest from the previous version's, and opens the PR against `microsoft/winget-pkgs`. Drop `--submit` (or add `--dry-run`) to eyeball the manifest first.
+
+   A **version update** to an already-merged package usually clears automated validation and merges with no human involved. A **new package** picks up the `New-Package` label and waits on a volunteer moderator, which runs to days. Two failures recur, both with recipes in `~/notes/build_release_gotchas.md`: `Validation-Defender-Error` (a Defender heuristic flags the unsigned cargo-dist binary — submit the false positive, never rebuild to appease it) and `Validation-Executable-Error` (validation runs the exe with no arguments and reports a non-zero exit, which an intentional usage guard will trip).
+
+   **A pushed `v*` tag is spent.** The merged manifest pins `InstallerSha256`, so deleting and re-cutting a tag swaps the release asset out from under it and breaks every install of that version. That is the same immutability rule step 4 states for crates.io, except nothing here refuses the second attempt — winget and apt both overwrite silently. If a release goes wrong after the tag is pushed, bump to the next number.
+
 ## Notes
 
 - **crates.io API needs a User-Agent.** Requests without one return empty (`name: None`). To verify a publish from a script: `curl -s -H "User-Agent: …" https://crates.io/api/v1/crates/xled`.

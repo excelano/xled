@@ -20,6 +20,8 @@ It is deliberately not a query engine. xled rewrites cells and reshapes nothing 
 
 ## Install
 
+Every install line below ends with `xled --install-skill`. That installs the [Claude Code skill](#use-it-from-claude-code) alongside the binary, which is the one step people reliably skipped when it lived further down the page. Drop it if you do not use Claude Code — the CLI itself does not need it.
+
 ### Debian and Ubuntu
 
 Add the [Excelano apt repository](https://excelano.com/apt/) once (one-time setup):
@@ -31,7 +33,7 @@ curl -fsSL https://excelano.com/apt/setup.sh | sudo sh
 Then install it, so `apt upgrade` keeps it current:
 
 ```sh
-sudo apt install xled
+sudo apt install xled && xled --install-skill
 ```
 
 Both amd64 and arm64 packages ship with every release.
@@ -48,7 +50,7 @@ brew trust excelano/tap
 Then install it, so `brew upgrade` keeps it current:
 
 ```sh
-brew install xled
+brew install xled && xled --install-skill
 ```
 
 ### Windows
@@ -57,6 +59,7 @@ With [WinGet](https://learn.microsoft.com/windows/package-manager/), so `winget 
 
 ```powershell
 winget install Excelano.xled
+xled --install-skill
 ```
 
 Or run the standalone installer in PowerShell:
@@ -84,7 +87,7 @@ That removes the binary from `~/.cargo/bin`; you can also just `rm ~/.cargo/bin/
 If you have a Rust toolchain, install the published crate from [crates.io](https://crates.io/crates/xled). This compiles from source rather than fetching a prebuilt binary, so it is slower than the installer above but needs nothing else:
 
 ```sh
-cargo install xled
+cargo install xled && xled --install-skill
 ```
 
 ### Build from source
@@ -100,17 +103,15 @@ The binary is at `target/release/xled`.
 
 ## Use it from Claude Code
 
-xled was built for AI coding agents as much as for people, so the repo ships an official [Claude Code](https://docs.claude.com/en/docs/claude-code) skill under [`skills/xled/`](skills/xled/). It teaches an agent xled's addressing model, commands, the no-coercion type rules, and the hard boundary (never reshapes — reach for SQL/DuckDB instead), so it uses xled correctly rather than routing around it to a tool it already knows. Drop it into your personal skills directory:
+xled was built for AI coding agents as much as for people, so the repo ships an official [Claude Code](https://docs.claude.com/en/docs/claude-code) skill under [`skills/xled/`](skills/xled/). It teaches an agent xled's addressing model, commands, the no-coercion type rules, and the hard boundary (never reshapes — reach for SQL/DuckDB instead), so it uses xled correctly rather than routing around it to a tool it already knows. The binary installs it:
 
 ```sh
-mkdir -p ~/.claude/skills/xled
-for f in SKILL.md reference.md; do
-  curl -fsSL "https://raw.githubusercontent.com/excelano/xled/main/skills/xled/$f" \
-    -o ~/.claude/skills/xled/$f
-done
+xled --install-skill
 ```
 
-Or, from a clone of this repo, `cp -r skills/xled ~/.claude/skills/`.
+That writes `~/.claude/skills/xled/` and stamps in the version it came from, so a later run reports whether the skill has fallen behind the binary rather than leaving you to notice. It is safe to re-run: an unchanged skill reports `already current` and nothing is written. `xled --uninstall-skill` removes it. Restart Claude Code afterwards, since skills are discovered at session start.
+
+The skill is compiled into the binary, so this works the same however you installed xled — apt, Homebrew, cargo, the curl one-liner, or a build from source.
 
 ## Three ways to run it
 

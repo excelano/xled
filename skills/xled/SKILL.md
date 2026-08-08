@@ -1,16 +1,20 @@
 ---
 name: xled
 description: >-
-  Edit, clean, and compute over CSV/DSV cells in place with the `xled` CLI — "sed
-  and awk for tabular data." Use this when a task means fixing or transforming cell
-  *values* in a delimited file: strip currency/format characters, normalize casing,
-  restore or preserve leading zeros and long IDs, compute a derived column, fill
-  merged-cell blanks, promote a buried header, or carve a real table out of
-  surrounding junk. Prefer it over a throwaway `awk -F,` / `sed` one-liner or a
-  one-off pandas script, because it parses CSV correctly (quotes, embedded commas
-  and newlines) and never coerces a value you didn't ask it to. Do NOT use it to
-  query, join, aggregate, group, sort, pivot, split one column into several, or add
-  or remove rows/columns — xled never reshapes; those go to SQL/DuckDB (xql).
+  Edit, clean, and compute over CSV/DSV cell values in place with `xled` — "sed and awk for
+  tabular data." Fires on the complaint as readily as the diagnosis: "Excel ate the leading
+  zeros", "the IDs came out as 1.23E+15", "the amounts are text and won't sum", "there's a
+  title block above the real header", "the merged cells left blanks down the column",
+  "everything has trailing spaces", "the dates are DD/MM and need to be ISO". Use it to strip
+  currency and format characters, normalize casing, restore or preserve leading zeros and
+  long IDs, compute a derived column, fill merged-cell blanks, promote a buried header, or
+  carve a real table out of surrounding junk. Better than an `awk -F,`/`sed` one-liner or a
+  throwaway pandas script: the Python is six to eight lines inside a bash string with two
+  levels of quoting, and `read_csv`/`to_csv` round-trips every column through type inference,
+  silently reinstating the damage you were asked to repair. Profile with xray first on an
+  unfamiliar file. Not for reshaping the grid — unpivot, pivot, transpose, split a column,
+  explode a delimited cell, merge columns (xshape) — nor for the row set: join, group,
+  aggregate, sort, dedupe, filter rows out (xql).
 ---
 
 # xled — sed and awk for tabular data
@@ -32,12 +36,17 @@ one of them**; upgrade with `sudo apt install --only-upgrade xled` (Debian/Ubunt
 ## The one rule that decides whether xled is the right tool
 
 xled **rewrites cells within the table's existing shape**. It never adds or removes
-rows, never reorders or splits columns, never coerces a value. The moment a task
-needs *reshaping or querying* — join, group, aggregate, sort, pivot, unpivot, split
-one cell into several columns, dedupe rows, filter rows *out* of the output — stop
-and reach for SQL/DuckDB (the sibling tool is [xql](https://github.com/excelano/xql)).
-xled's own errors will point you there by name. Use xled for **value-level cleanup
-and per-row computation**; use SQL for **set-level questions and structure changes**.
+rows, never reorders or splits columns, never coerces a value. The moment a task needs
+*reshaping* — unpivot a wide export, pivot, transpose, split one cell into several
+columns, explode a delimited cell, merge columns — that is
+[xshape](https://github.com/excelano/xshape). The moment it needs *querying* — join,
+group, aggregate, sort, dedupe, filter rows *out* of the output — that is SQL/DuckDB
+([xql](https://github.com/excelano/xql)). xled's own errors point you to the sibling by
+name. Use xled for **value-level cleanup and per-row computation**; use xshape for
+**geometry** and SQL for **set-level questions**.
+
+If you have not seen the file before, [xray](https://github.com/excelano/xray) profiles
+it read-only first and tells you which of the three you need.
 
 ## Running it
 
@@ -57,6 +66,50 @@ Useful flags: `-d/--delim <char>` (delimiter, `\t` for tab; defaults to `,`, or 
 values, no header, no CSV quoting — for shell capture), `--number` (prefix each
 output row with its logical row number), `--no-header` (treat row 1 as data, when the
 real header is buried under a title block).
+
+## Worked recipes
+
+Start here. Most tasks are a small variation on one of these lines; the grammar
+sections below are the reference for when none of them fits.
+
+```sh
+# strip the currency formatting from a column, in place
+xled -i '[annual_cost] s/[$,]//g' app-portfolio.csv
+
+# derive a tax-inclusive total, money-rounded (note the explicit num() casts)
+xled '[total] = round(num([price]) * 1.0825, 2)' products.csv
+
+# restore a stripped leading zero: pad the zip back to 5 digits
+xled '[zip] = lpad([zip], 5, "0")' ids-zips.csv
+
+# normalize a whole column's case (compute form; the s/// form is `s/.*/\L&/`)
+xled '[email] = lower([email])' contacts.csv
+xled '[name]  = proper(trim([name]))' contacts.csv    # tidy casing + stray spaces
+
+# normalize a British-formatted date column to ISO (the cast alone does it)
+xled '[hired] = date([hired], "DD/MM/YYYY")' staff.csv
+
+# tenure in days, and a year column to group on
+xled '[days] = today() - date([hired])
+[year] = year(date([hired]))' staff.csv
+
+# fill merged-cell blanks down from the value above
+xled '[Vendor] fill down' fill-down.csv
+
+# rename a header in place (rest of line, no quoting needed)
+xled '[first name] rename first_name' tricky-headers.csv
+
+# only touch cells that match — set a status where the row is active
+xled '/active/i [status] = "approved"' app-portfolio.csv
+
+# capture a single value into a shell variable (no header, no quoting)
+owner=$(xled --raw '[owner] 3' app-portfolio.csv)
+```
+
+Two of these carry the rules that catch people out: arithmetic needs an explicit
+`num()` cast, and a non-ISO date needs its layout spelled out. Both are in *Expressions
+and the type model* below, which is worth reading before writing a `=` command of your
+own.
 
 ## Addressing (which cells)
 
@@ -127,42 +180,6 @@ substr trim ltrim rtrim lpad rpad`; case — `upper lower proper` (same Unicode 
 year month day weekday today`; casts and logic — `num bool default coalesce if`.
 Concatenate with `&`.
 
-## Worked recipes
-
-```sh
-# strip the currency formatting from a column, in place
-xled -i '[annual_cost] s/[$,]//g' app-portfolio.csv
-
-# derive a tax-inclusive total, money-rounded (note the explicit num() casts)
-xled '[total] = round(num([price]) * 1.0825, 2)' products.csv
-
-# restore a stripped leading zero: pad the zip back to 5 digits
-xled '[zip] = lpad([zip], 5, "0")' ids-zips.csv
-
-# normalize a whole column's case (compute form; the s/// form is `s/.*/\L&/`)
-xled '[email] = lower([email])' contacts.csv
-xled '[name]  = proper(trim([name]))' contacts.csv    # tidy casing + stray spaces
-
-# normalize a British-formatted date column to ISO (the cast alone does it)
-xled '[hired] = date([hired], "DD/MM/YYYY")' staff.csv
-
-# tenure in days, and a year column to group on
-xled '[days] = today() - date([hired])
-[year] = year(date([hired]))' staff.csv
-
-# fill merged-cell blanks down from the value above
-xled '[Vendor] fill down' fill-down.csv
-
-# rename a header in place (rest of line, no quoting needed)
-xled '[first name] rename first_name' tricky-headers.csv
-
-# only touch cells that match — set a status where the row is active
-xled '/active/i [status] = "approved"' app-portfolio.csv
-
-# capture a single value into a shell variable (no header, no quoting)
-owner=$(xled --raw '[owner] 3' app-portfolio.csv)
-```
-
 ## The interactive REPL
 
 `xled file.csv` opens a live buffer. Ordinary `address command` lines edit it; word
@@ -173,11 +190,16 @@ Nothing is written until `write`.
 
 ## When to stop and switch
 
-If the task is join, group, aggregate, sort, pivot/unpivot, dedupe, split one column
-into several, merge stacked tables, or filter rows out of the result — that is
-reshaping or querying, which xled does **not** do. Hand it to SQL/DuckDB (xql). xled
-carves *a* rectangle and rewrites cells inside the table's existing shape; it is not a
-splitter, not a query engine, and not a spreadsheet.
+Two destinations, and the split is *what changes*:
+
+- **The geometry changes, the values don't** — unpivot a wide export to long, pivot it
+  back, transpose a sideways table, split one column into several by a delimiter,
+  explode a `;`-delimited cell into one row per value, merge columns → **xshape**.
+- **The row set changes** — join, group, aggregate, sort, dedupe, filter rows out of the
+  result → **SQL/DuckDB (xql)**.
+
+xled carves *a* rectangle and rewrites cells inside the table's existing shape; it is not
+a splitter, not a query engine, and not a spreadsheet.
 
 See `reference.md` in this directory for the complete address grammar, every command's
 scope contract, the full expression-function reference, and the input-encoding notes.

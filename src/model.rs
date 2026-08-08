@@ -14,6 +14,23 @@ pub struct Buffer {
     pub rows: Vec<Vec<String>>,
     /// Field delimiter (`,` for CSV, `\t` for TSV).
     pub delim: u8,
+    /// Cells this run actually changed. Counted at `set_cell`, the single write
+    /// path, so every value-level command is measured the same way and writing
+    /// a cell its existing value is not reported as an edit.
+    ///
+    /// Structural commands — `crop`, `del`, `header`, `fill`, `drop blanks` —
+    /// do not pass through `set_cell`. Comparing the buffer's dimensions before
+    /// and after is what covers those.
+    pub edits: Edits,
+}
+
+/// A tally of value-level changes, for the `-i` summary.
+#[derive(Clone, Default)]
+pub struct Edits {
+    /// Cells whose value differs from what was there before.
+    pub cells: usize,
+    /// The columns those cells were in, deduplicated and in column order.
+    pub cols: std::collections::BTreeSet<usize>,
 }
 
 impl Buffer {
@@ -53,6 +70,10 @@ impl Buffer {
         if let Some(row) = self.rows.get_mut(r) {
             if row.len() <= c {
                 row.resize(c + 1, String::new());
+            }
+            if row[c] != value {
+                self.edits.cells += 1;
+                self.edits.cols.insert(c);
             }
             row[c] = value;
         }

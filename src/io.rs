@@ -3,7 +3,7 @@
 //! zeros and long IDs survive a round-trip untouched.
 
 use crate::errors::{Result, XledError};
-use crate::model::Buffer;
+use crate::model::{Buffer, Edits};
 use csv::{ReaderBuilder, WriterBuilder};
 use std::path::Path;
 
@@ -33,7 +33,12 @@ pub fn read_str(data: &str, delim: u8, has_header: bool) -> Result<Buffer> {
         (None, records)
     };
 
-    Ok(Buffer { header, rows, delim })
+    Ok(Buffer {
+        header,
+        rows,
+        delim,
+        edits: Edits::default(),
+    })
 }
 
 /// Read a file, choosing the delimiter from its extension unless one is given.

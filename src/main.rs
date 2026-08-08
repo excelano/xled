@@ -172,6 +172,72 @@ struct Rendered {
     /// true when the script produced `show`/inspect output rather than mutating the table —
     /// such a result must not be written back over the source file by `-i`.
     is_query: bool,
+    /// What the run changed, reported to stderr after an in-place write. `None` for an
+    /// inspect result, which changes nothing by definition.
+    summary: Option<EditSummary>,
+}
+
+/// What an in-place edit did. Printed to stderr after a successful `-i` write, because
+/// `-i` sends nothing to stdout and a silent success is indistinguishable from a script
+/// whose address matched no cells.
+struct EditSummary {
+    cells: usize,
+    /// Display labels for the columns those cells were in — a bracketed header name where
+    /// there is one, the spreadsheet letter otherwise, addressed the way you would re-run it.
+    cols: Vec<String>,
+    shape_before: (usize, usize),
+    shape_after: (usize, usize),
+    header_changed: bool,
+}
+
+impl EditSummary {
+    /// True when the run left the table exactly as it found it.
+    fn is_noop(&self) -> bool {
+        self.cells == 0 && self.shape_before == self.shape_after && !self.header_changed
+    }
+
+    /// The stderr line for a successful write, minus the `xled: ` prefix.
+    fn describe(&self, path: &str, backup: Option<&str>) -> String {
+        if self.is_noop() {
+            // Deliberately does not claim the address matched nothing: a compute that
+            // wrote back the values already there lands here too, and the two are
+            // indistinguishable from the outside.
+            return format!(
+                "{path} rewritten unchanged — the address matched no cells, or the script \
+                 wrote the values already there"
+            );
+        }
+        let mut parts = Vec::new();
+        if self.cells > 0 {
+            let where_ = match self.cols.len() {
+                0 => String::new(),
+                1 => format!(" in {}", self.cols[0]),
+                n if n <= 3 => format!(" across {}", self.cols.join(", ")),
+                n => format!(" across {n} columns"),
+            };
+            parts.push(format!(
+                "{} cell{} changed{where_}",
+                self.cells,
+                if self.cells == 1 { "" } else { "s" }
+            ));
+        }
+        if self.shape_before != self.shape_after {
+            let (br, bc) = self.shape_before;
+            let (ar, ac) = self.shape_after;
+            parts.push(format!(
+                "now {ar} row{} × {ac} column{} (was {br} × {bc})",
+                if ar == 1 { "" } else { "s" },
+                if ac == 1 { "" } else { "s" }
+            ));
+        }
+        if self.header_changed {
+            parts.push("header changed".to_string());
+        }
+        let backup = backup
+            .map(|b| format!(", original kept as {b}"))
+            .unwrap_or_default();
+        format!("wrote {path} — {}{backup}", parts.join(", "))
+    }
 }
 
 /// Run the script once. If the program only mutated the buffer, the rendered text is the
@@ -179,6 +245,10 @@ struct Rendered {
 /// text and `is_query` is set. Notices always go to stderr so the data stream stays clean.
 fn render(mut buf: Buffer, script: &str, opts: exec::RenderOpts) -> xled::Result<Rendered> {
     let program = parser::parse_program(script)?;
+    // Captured before the run so the summary can report structural commands, which
+    // never reach set_cell and so contribute nothing to the cell tally.
+    let shape_before = (buf.nrows(), buf.ncols());
+    let header_before = buf.header.clone();
     let out = exec::run_with(&mut buf, &program, opts)?;
     for n in &out.notices {
         eprintln!("{n}");
@@ -190,9 +260,32 @@ fn render(mut buf: Buffer, script: &str, opts: exec::RenderOpts) -> xled::Result
                  script writes the whole table, so they had no effect"
             );
         }
-        Ok(Rendered { text: xio::serialize(&buf)?, is_query: false })
+        let summary = EditSummary {
+            cells: buf.edits.cells,
+            cols: buf
+                .edits
+                .cols
+                .iter()
+                .map(|&c| match buf.col_name(c) {
+                    Some(name) if !name.trim().is_empty() => format!("[{name}]"),
+                    _ => xled::model::col_to_letter(c),
+                })
+                .collect(),
+            shape_before,
+            shape_after: (buf.nrows(), buf.ncols()),
+            header_changed: buf.header != header_before,
+        };
+        Ok(Rendered {
+            text: xio::serialize(&buf)?,
+            is_query: false,
+            summary: Some(summary),
+        })
     } else {
-        Ok(Rendered { text: format!("{}\n", out.output.join("\n")), is_query: true })
+        Ok(Rendered {
+            text: format!("{}\n", out.output.join("\n")),
+            is_query: true,
+            summary: None,
+        })
     }
 }
 
@@ -210,11 +303,18 @@ fn emit(r: Rendered, in_place: Option<&str>, file: Option<&str>) -> xled::Result
                 );
                 exit(2);
             }
-            if !suffix.is_empty() {
-                fs::copy(path, format!("{path}{suffix}"))
-                    .map_err(|e| xled::XledError::Io(e.to_string()))?;
+            let backup = (!suffix.is_empty()).then(|| format!("{path}{suffix}"));
+            if let Some(b) = &backup {
+                fs::copy(path, b).map_err(|e| xled::XledError::Io(e.to_string()))?;
             }
-            fs::write(path, &r.text).map_err(|e| xled::XledError::Io(e.to_string()))
+            fs::write(path, &r.text).map_err(|e| xled::XledError::Io(e.to_string()))?;
+            // -i writes nothing to stdout, so without this a successful run and a
+            // run whose address matched nothing look identical. Report to stderr,
+            // which keeps the data stream clean for the redirect case.
+            if let Some(s) = &r.summary {
+                eprintln!("xled: {}", s.describe(path, backup.as_deref()));
+            }
+            Ok(())
         }
         (Some(_), None) => {
             eprintln!("xled: -i edits a file in place — it needs a file argument, not piped stdin");

@@ -130,6 +130,15 @@ xled -i '[price] s/[$,]//g' file.csv       # rewrite file.csv in place
 xled -i.bak '[price] s/[$,]//g' file.csv   # …and save the original as file.csv.bak
 ```
 
+An in-place run prints nothing to stdout, so it reports what it did on stderr instead:
+
+```
+xled: wrote products.csv — 12 cells changed in [price]
+xled: products.csv rewritten unchanged — the address matched no cells, or the script wrote the values already there
+```
+
+That second line is worth reading. A script whose address matched nothing still exits 0 and still rewrites the file, so a silent success would look exactly like a successful edit; `unchanged` is what tells you the header name was misspelled rather than the data being already clean.
+
 `-f` (`--file`) reads the script from a file rather than the command line, which avoids the `"$(cat …)"` dance when a batch of edits grows past a comfortable one-liner:
 
 ```sh

@@ -61,6 +61,21 @@ xled file.csv                 # open the interactive REPL on a file
 One-shot sends data to **stdout** (clean, pipeable) and advisory notices to
 **stderr**, so `xled … file.csv > out.csv` is always safe.
 
+**`-i` reports what it did, on stderr.** It writes nothing to stdout, so read that line
+instead of spending a `head` to check:
+
+```
+xled: wrote products.csv — 12 cells changed in [price]
+xled: wrote report.csv — now 41 rows × 8 columns (was 44 × 8)
+xled: products.csv rewritten unchanged — the address matched no cells, or the script
+      wrote the values already there
+```
+
+The third one is the one to watch for. A script whose address matched nothing still exits
+0 and still rewrites the file, so **success alone does not mean your address was right** —
+`unchanged` is how you find out it wasn't. Re-read the header spelling (names are
+case-sensitive) before assuming the data was already clean.
+
 Useful flags: `-d/--delim <char>` (delimiter, `\t` for tab; defaults to `,`, or tab for `.tsv`),
 `-f/--file <script>` (read the script from a file), `--raw` (print just the addressed
 values, no header, no CSV quoting — for shell capture), `--number` (prefix each

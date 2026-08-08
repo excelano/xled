@@ -32,10 +32,17 @@ fn in_place_edits_file_without_backup() {
     fs::write(&path, DATA).unwrap();
     let out = run(&["-i", STRIP, path.to_str().unwrap()]);
 
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert!(out.stdout.is_empty(), "-i must not also print to stdout");
     assert_eq!(fs::read_to_string(&path).unwrap(), EXPECTED);
-    assert!(!tmp("inplace_nobackup.csv.bak").exists(), "no suffix → no backup");
+    assert!(
+        !tmp("inplace_nobackup.csv.bak").exists(),
+        "no suffix → no backup"
+    );
     fs::remove_file(&path).ok();
 }
 
@@ -46,10 +53,22 @@ fn in_place_attached_suffix_keeps_original() {
     fs::write(&path, DATA).unwrap();
     let out = run(&["-i.bak", STRIP, path.to_str().unwrap()]);
 
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
-    assert_eq!(fs::read_to_string(&path).unwrap(), EXPECTED, "target edited");
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        fs::read_to_string(&path).unwrap(),
+        EXPECTED,
+        "target edited"
+    );
     let backup = tmp("inplace_bak.csv.bak");
-    assert_eq!(fs::read_to_string(&backup).unwrap(), DATA, "backup holds the original");
+    assert_eq!(
+        fs::read_to_string(&backup).unwrap(),
+        DATA,
+        "backup holds the original"
+    );
     fs::remove_file(&path).ok();
     fs::remove_file(&backup).ok();
 }
@@ -60,7 +79,11 @@ fn in_place_long_form_with_equals_suffix() {
     fs::write(&path, DATA).unwrap();
     let out = run(&["--in-place=.orig", STRIP, path.to_str().unwrap()]);
 
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(fs::read_to_string(&path).unwrap(), EXPECTED);
     let backup = tmp("inplace_long.csv.orig");
     assert_eq!(fs::read_to_string(&backup).unwrap(), DATA);
@@ -76,8 +99,16 @@ fn script_from_file() {
     fs::write(&data, DATA).unwrap();
 
     let out = run(&["-f", script.to_str().unwrap(), data.to_str().unwrap()]);
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
-    assert_eq!(String::from_utf8_lossy(&out.stdout), EXPECTED, "-f runs the file's script to stdout");
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        EXPECTED,
+        "-f runs the file's script to stdout"
+    );
     fs::remove_file(&script).ok();
     fs::remove_file(&data).ok();
 }
@@ -91,7 +122,11 @@ fn script_from_file_edited_in_place() {
     fs::write(&data, DATA).unwrap();
 
     let out = run(&["-i", "-f", script.to_str().unwrap(), data.to_str().unwrap()]);
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(fs::read_to_string(&data).unwrap(), EXPECTED);
     fs::remove_file(&script).ok();
     fs::remove_file(&data).ok();
@@ -104,8 +139,15 @@ fn in_place_refuses_query_script_and_leaves_file_intact() {
     fs::write(&path, DATA).unwrap();
     let out = run(&["-i", "[price]", path.to_str().unwrap()]);
 
-    assert!(!out.status.success(), "must refuse an inspect-only script under -i");
-    assert_eq!(fs::read_to_string(&path).unwrap(), DATA, "file left untouched");
+    assert!(
+        !out.status.success(),
+        "must refuse an inspect-only script under -i"
+    );
+    assert_eq!(
+        fs::read_to_string(&path).unwrap(),
+        DATA,
+        "file left untouched"
+    );
     fs::remove_file(&path).ok();
 }
 
@@ -123,7 +165,10 @@ fn in_place_over_stdin_is_an_error() {
             c.wait_with_output()
         })
         .expect("run xled");
-    assert!(!out.status.success(), "-i with no file (piped stdin) must error");
+    assert!(
+        !out.status.success(),
+        "-i with no file (piped stdin) must error"
+    );
 }
 
 #[test]
@@ -133,8 +178,101 @@ fn script_file_conflicts_with_inline_script() {
     let data = tmp("conflict_data.csv");
     fs::write(&data, DATA).unwrap();
 
-    let out = run(&["-f", script.to_str().unwrap(), STRIP, data.to_str().unwrap()]);
-    assert!(!out.status.success(), "-f plus an inline script must be rejected");
+    let out = run(&[
+        "-f",
+        script.to_str().unwrap(),
+        STRIP,
+        data.to_str().unwrap(),
+    ]);
+    assert!(
+        !out.status.success(),
+        "-f plus an inline script must be rejected"
+    );
     fs::remove_file(&script).ok();
     fs::remove_file(&data).ok();
+}
+
+// --- the -i summary (issue: a silent success is indistinguishable from a no-op) ---
+
+fn stderr_of(out: &Output) -> String {
+    String::from_utf8_lossy(&out.stderr).into_owned()
+}
+
+#[test]
+fn in_place_reports_what_it_changed() {
+    let path = tmp("summary_changed.csv");
+    fs::write(&path, DATA).unwrap();
+    let out = run(&["-i", STRIP, path.to_str().unwrap()]);
+
+    let err = stderr_of(&out);
+    assert!(err.contains("2 cells changed"), "stderr was: {err}");
+    // Named by the address you would re-run, not by index.
+    assert!(err.contains("[price]"), "stderr was: {err}");
+    assert!(
+        out.stdout.is_empty(),
+        "the summary belongs on stderr, not in the data stream"
+    );
+    fs::remove_file(&path).ok();
+}
+
+#[test]
+fn a_script_that_changes_nothing_says_so() {
+    // The whole point: -i prints nothing on success, so without this a wrong
+    // address and a correct one look identical from the outside.
+    let path = tmp("summary_noop.csv");
+    fs::write(&path, DATA).unwrap();
+    let out = run(&["-i", "[price] s/ZZZNOMATCH/x/g", path.to_str().unwrap()]);
+
+    assert!(out.status.success(), "a no-op is not an error");
+    let err = stderr_of(&out);
+    assert!(err.contains("unchanged"), "stderr was: {err}");
+    assert!(!err.contains("cells changed"), "stderr was: {err}");
+    assert_eq!(
+        fs::read_to_string(&path).unwrap(),
+        DATA,
+        "the file is byte-identical"
+    );
+    fs::remove_file(&path).ok();
+}
+
+#[test]
+fn a_structural_edit_reports_the_new_shape() {
+    // `del` never reaches set_cell, so the cell tally cannot see it — the
+    // before/after dimension comparison is what covers structural commands.
+    let path = tmp("summary_structural.csv");
+    fs::write(&path, DATA).unwrap();
+    let out = run(&["-i", "2 del", path.to_str().unwrap()]);
+
+    let err = stderr_of(&out);
+    assert!(err.contains("now 1 row"), "stderr was: {err}");
+    assert!(err.contains("was 2"), "stderr was: {err}");
+    fs::remove_file(&path).ok();
+}
+
+#[test]
+fn the_backup_is_named_in_the_summary() {
+    let path = tmp("summary_backup.csv");
+    fs::write(&path, DATA).unwrap();
+    let out = run(&["-i.bak", STRIP, path.to_str().unwrap()]);
+
+    assert!(
+        stderr_of(&out).contains("summary_backup.csv.bak"),
+        "stderr: {}",
+        stderr_of(&out)
+    );
+    fs::remove_file(&path).ok();
+    fs::remove_file(tmp("summary_backup.csv.bak")).ok();
+}
+
+#[test]
+fn a_run_without_in_place_stays_silent() {
+    // The summary is about the write. Without -i there is no write to report,
+    // and stderr must stay clean so `xled … > out.csv 2>err` leaves err empty.
+    let path = tmp("summary_silent.csv");
+    fs::write(&path, DATA).unwrap();
+    let out = run(&[STRIP, path.to_str().unwrap()]);
+
+    assert!(out.stderr.is_empty(), "stderr was: {}", stderr_of(&out));
+    assert_eq!(String::from_utf8_lossy(&out.stdout), EXPECTED);
+    fs::remove_file(&path).ok();
 }

@@ -5,6 +5,8 @@
 //!   … | xled '<script>'        one-shot over stdin (data piped in)
 //!   xled file.csv              open the REPL on a file (when stdin is a terminal)
 
+mod skill;
+
 use clap::Parser as ClapParser;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
@@ -54,10 +56,24 @@ struct Cli {
     /// header and every address shifts up by one)
     #[arg(long)]
     no_header: bool,
+    /// install xled's Claude Code skill into ~/.claude/skills/xled and exit
+    #[arg(long)]
+    install_skill: bool,
+    /// remove the installed Claude Code skill and exit
+    #[arg(long)]
+    uninstall_skill: bool,
 }
 
 fn main() {
     let cli = Cli::parse_from(normalize_in_place(std::env::args()));
+    // Terminal actions: they touch the user's skills directory and nothing
+    // else, so they run before any input is read or any file is opened.
+    if cli.install_skill {
+        exit(skill::install());
+    }
+    if cli.uninstall_skill {
+        exit(skill::uninstall());
+    }
     if let Err(e) = real_main(cli) {
         // Every diagnostic names the tool that raised it, so a message in a
         // pipeline of family tools points at the one that objected.

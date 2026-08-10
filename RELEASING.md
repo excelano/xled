@@ -28,13 +28,18 @@ The release loop for a new version. Run it from a clean `main` with the working 
    ```
    Do **not** run `cargo publish` by hand — the pipeline beats you to it and you'll just get `already exists`. **Versions are immutable**: you can `cargo yank` a bad release to hide it from new dependency resolution, but never re-publish the same number. A fix is always a fresh version bump, never a re-push.
 
-6. **Submit the winget manifest.** winget stores one manifest per version, so every release needs its own PR — there is no update in place. Run komac:
+6. **Submit the winget manifest.** winget stores one manifest per version, so every release needs its own PR — there is no update in place. Sync the fork first, then run komac:
    ```sh
+   gh repo sync anderix/winget-pkgs
    komac update Excelano.xled --version 1.2.3 \
      --urls https://github.com/excelano/xled/releases/download/v1.2.3/xled-x86_64-pc-windows-msvc.zip \
      --submit
    ```
    It downloads the asset, computes the `InstallerSha256`, generates the manifest from the previous version's, and opens the PR against `microsoft/winget-pkgs`. Drop `--submit` (or add `--dry-run`) to eyeball the manifest first.
+
+   **The sync is not optional.** Upstream lands commits touching `.github/workflows/`, and komac's own sync would need the `workflow` scope, which its stored token deliberately does not have. A stale fork fails as `anderix does not have the correct permissions to execute CreateRef`, which reads like a permissions problem and is not one. `gh repo sync` uses the `gh` credential, which does have the scope.
+
+   komac holds its own classic PAT (`public_repo` only), so winget submissions do not ride on the `gh` token. If it ever reports "The input device is not a TTY", that token is missing — re-add it with `komac token update`, and do **not** wrap the call in `script -qec` to manufacture a terminal, which converts the clear error into a silent hang.
 
    A **version update** to an already-merged package usually clears automated validation and merges with no human involved. A **new package** picks up the `New-Package` label and waits on a volunteer moderator, which runs to days. Two failures recur, both with recipes in `~/notes/build_release_gotchas.md`: `Validation-Defender-Error` (a Defender heuristic flags the unsigned cargo-dist binary — submit the false positive, never rebuild to appease it) and `Validation-Executable-Error` (validation runs the exe with no arguments and reports a non-zero exit, which an intentional usage guard will trip).
 

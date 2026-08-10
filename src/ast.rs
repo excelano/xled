@@ -3,28 +3,16 @@
 //! Mirrors the EBNF productions in ebnf.md. Slice 1 populates the addressing tree and the
 //! `show` command; later slices add subst/assign/word variants and the expr tree.
 
-/// A single addressable position: a cell, a whole column, a row, a named column, or `$`.
-#[derive(Debug, Clone)]
-pub enum Positional {
-    /// A1-style cell, e.g. `B2` — column index + 1-based row as written.
-    Cell { col: usize, row: usize },
-    /// A whole column by letter, e.g. `C` — 0-based index.
-    Column(usize),
-    /// A whole row by number, e.g. `3` — 1-based as written.
-    Row(usize),
-    /// A whole column by bracketed name, e.g. `[price]`.
-    Name(String),
-    /// The last data row, `$`.
-    LastRow,
-}
-
-/// A range or a lone positional. The four `:` forms collapse here:
-/// `pos` (is_range=false), `pos:pos`, `pos:` (end=None), `:pos` (start=None).
-#[derive(Debug, Clone)]
-pub struct RangeRef {
-    pub start: Option<Positional>,
-    pub end: Option<Positional>,
-    pub is_range: bool,
+/// The bare column this address names, if that is all it names — `[price]` or `C`, but not
+/// `A:C`, `3`, or `B2`.
+///
+/// Two places need it: assignment, which writes exactly one column and may create it by name,
+/// and `[col]~/re/`, which is a lone named column followed by a match operator.
+pub fn lone_column(spec: &xaddr::Spec) -> Option<&xaddr::ColRef> {
+    match spec.items() {
+        [xaddr::Item::Single(xaddr::Pos::Column(c))] => Some(c),
+        _ => None,
+    }
 }
 
 /// The address tree. Precedence (low→high): `,` union < `SP` intersect < `:` range < `!` negate.
@@ -33,7 +21,9 @@ pub enum Reference {
     Union(Vec<Reference>),
     Intersect(Vec<Reference>),
     Negate(Box<Reference>),
-    Range(RangeRef),
+    /// A positional address — cell, column, row, `$`, or a range of them. The grammar and its
+    /// resolution live in `xaddr`; predicates below are xled's, since they need an evaluator.
+    Range(xaddr::Spec),
     /// `/re/` — rows where any cell matches.
     RegexSel { body: String, ci: bool },
     /// `[col]~/re/` (or `!~`) — rows where a named column matches (or doesn't).

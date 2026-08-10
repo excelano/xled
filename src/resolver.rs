@@ -59,7 +59,12 @@ pub fn resolve(buf: &Buffer, r: &Reference) -> Result<CellSet> {
             ci,
         } => resolve_col_regex(buf, col, *neg, body, *ci),
         Reference::Comparison(e) => resolve_comparison(buf, e),
-        Reference::Range(rr) => resolve_range(buf, rr),
+        // Bounds::Clamp is sed's reading of `2,$`: addressing past the end stops at the end
+        // and invents nothing. xshape chooses Strict for the same grammar, because a reshape
+        // that quietly does less than asked is worse than one that stops.
+        Reference::Range(spec) => spec
+            .cells(buf, xaddr::Bounds::Clamp)
+            .map_err(|e| XledError::Correction(e.message)),
     }
 }
 
@@ -123,129 +128,4 @@ fn resolve_regex(buf: &Buffer, body: &str, ci: bool) -> Result<CellSet> {
         }
     }
     Ok(set)
-}
-
-/// (row, col) extents a positional contributes, each 0-based; `None` on an axis it doesn't pin.
-fn axes(buf: &Buffer, p: &Positional) -> Result<(Option<usize>, Option<usize>)> {
-    Ok(match p {
-        Positional::Cell { col, row } => (Some(row.saturating_sub(1)), Some(*col)),
-        Positional::Column(c) => (None, Some(*c)),
-        Positional::Row(n) => (Some(n.saturating_sub(1)), None),
-        Positional::LastRow => (Some(buf.nrows().saturating_sub(1)), None),
-        Positional::Name(name) => {
-            let c = buf
-                .name_to_col(name)
-                .ok_or_else(|| XledError::Correction(format!("no column named [{name}]")))?;
-            (None, Some(c))
-        }
-    })
-}
-
-fn resolve_range(buf: &Buffer, rr: &RangeRef) -> Result<CellSet> {
-    let nrows = buf.nrows();
-    let ncols = buf.ncols();
-
-    if !rr.is_range {
-        return resolve_single(buf, rr.start.as_ref().unwrap());
-    }
-
-    let (sr, sc) = match &rr.start {
-        Some(p) => axes(buf, p)?,
-        None => (None, None),
-    };
-    let (er, ec) = match &rr.end {
-        Some(p) => axes(buf, p)?,
-        None => (None, None),
-    };
-
-    let has_row = sr.is_some() || er.is_some();
-    let has_col = sc.is_some() || ec.is_some();
-    let mut set = CellSet::new();
-
-    // Spans are clamped to the table extent (sed's `2,$` reading: addressing past the end
-    // stops at the end, it does not invent phantom rows). A span wholly past the end is empty.
-    if has_row && has_col {
-        // rectangle (cell:cell)
-        let (r1, r2) = ordered(sr.unwrap_or(0), er.unwrap_or(nrows.saturating_sub(1)));
-        let (c1, c2) = ordered(sc.unwrap_or(0), ec.unwrap_or(ncols.saturating_sub(1)));
-        if let (Some((r1, r2)), Some((c1, c2))) =
-            (clamp_span(r1, r2, nrows), clamp_span(c1, c2, ncols))
-        {
-            for r in r1..=r2 {
-                for c in c1..=c2 {
-                    set.insert((r, c));
-                }
-            }
-        }
-    } else if has_row {
-        // row span — all columns
-        let (r1, r2) = ordered(sr.unwrap_or(0), er.unwrap_or(nrows.saturating_sub(1)));
-        if let Some((r1, r2)) = clamp_span(r1, r2, nrows) {
-            for r in r1..=r2 {
-                for c in 0..ncols {
-                    set.insert((r, c));
-                }
-            }
-        }
-    } else if has_col {
-        // column span — all rows
-        let (c1, c2) = ordered(sc.unwrap_or(0), ec.unwrap_or(ncols.saturating_sub(1)));
-        if let Some((c1, c2)) = clamp_span(c1, c2, ncols) {
-            for r in 0..nrows {
-                for c in c1..=c2 {
-                    set.insert((r, c));
-                }
-            }
-        }
-    } else {
-        return Err(parse("empty range"));
-    }
-    Ok(set)
-}
-
-fn resolve_single(buf: &Buffer, p: &Positional) -> Result<CellSet> {
-    let nrows = buf.nrows();
-    let ncols = buf.ncols();
-    let mut set = CellSet::new();
-    // A coordinate past the end of its axis selects nothing — no phantom rows or columns.
-    match axes(buf, p)? {
-        (Some(r), Some(c)) => {
-            if r < nrows && c < ncols {
-                set.insert((r, c));
-            }
-        }
-        (Some(r), None) => {
-            if r < nrows {
-                for c in 0..ncols {
-                    set.insert((r, c));
-                }
-            }
-        }
-        (None, Some(c)) => {
-            if c < ncols {
-                for r in 0..nrows {
-                    set.insert((r, c));
-                }
-            }
-        }
-        (None, None) => unreachable!("a positional always pins at least one axis"),
-    }
-    Ok(set)
-}
-
-fn ordered(a: usize, b: usize) -> (usize, usize) {
-    if a <= b {
-        (a, b)
-    } else {
-        (b, a)
-    }
-}
-
-/// Clamp an inclusive `[lo, hi]` span to an axis of length `len`; `None` if it starts past the end.
-fn clamp_span(lo: usize, hi: usize, len: usize) -> Option<(usize, usize)> {
-    if len == 0 || lo >= len {
-        None
-    } else {
-        Some((lo, hi.min(len - 1)))
-    }
 }

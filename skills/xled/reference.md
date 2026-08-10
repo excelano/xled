@@ -27,7 +27,9 @@ on the whole table.
 
 ## Address grammar
 
-Positional addresses are bare, names are bracketed.
+Positional addresses are bare, names are bracketed. The grammar and its resolution live in
+the [`xaddr`](https://crates.io/crates/xaddr) crate, which xshape uses too, so an address
+means the same thing in both tools.
 
 | Form | Selects |
 |---|---|
@@ -37,7 +39,9 @@ Positional addresses are bare, names are bracketed.
 | `5` | row 5 (1-based, over the logical header-aware row space) |
 | `2:4` | rows 2–4 inclusive |
 | `B2:C3` | rectangle between two corners |
+| `[price]12` | a cell named by column rather than lettered |
 | `C:AF` | column span |
+| `C:`, `:C`, `3:$` | open-ended span — runs to the table's edge (`$` is the last row) |
 | `/re/` | every cell matching the regex (add `i` for case-insensitive: `/re/i`) |
 | `[col]~/re/` | cells in one column matching the regex |
 | `/re/ [col]` | intersect a regex row-select with a column (space = intersect) |

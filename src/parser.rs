@@ -8,7 +8,6 @@
 
 use crate::ast::*;
 use crate::errors::{parse, Result, XledError};
-use crate::model::letter_to_col;
 
 /// Reserved command words (all lowercase; columns are uppercase, so no collision).
 const RESERVED: [&str; 8] = [
@@ -176,22 +175,21 @@ impl Parser {
                 }
                 let rng = self.parse_range()?;
                 // colRegexSel: a lone [name] followed by `~` or `!~` is a column-scoped match.
-                if !rng.is_range {
-                    if let Some(Positional::Name(name)) = &rng.start {
-                        let neg = self.peek() == Some('!') && self.peek_at(1) == Some('~');
-                        if self.peek() == Some('~') || neg {
-                            if neg {
-                                self.bump(); // '!'
-                            }
-                            self.bump(); // '~'
-                            let (body, ci) = self.parse_slash_regex()?;
-                            return Ok(Reference::ColRegexSel {
-                                col: name.clone(),
-                                neg,
-                                body,
-                                ci,
-                            });
+                if let Some(xaddr::ColRef::Name(name)) = crate::ast::lone_column(&rng) {
+                    let neg = self.peek() == Some('!') && self.peek_at(1) == Some('~');
+                    if self.peek() == Some('~') || neg {
+                        let name = name.clone();
+                        if neg {
+                            self.bump(); // '!'
                         }
+                        self.bump(); // '~'
+                        let (body, ci) = self.parse_slash_regex()?;
+                        return Ok(Reference::ColRegexSel {
+                            col: name,
+                            neg,
+                            body,
+                            ci,
+                        });
                     }
                 }
                 Ok(Reference::Range(rng))
@@ -235,69 +233,16 @@ impl Parser {
         Ok((body, ci))
     }
 
-    fn parse_range(&mut self) -> Result<RangeRef> {
-        // Leading-colon form: `:pos`.
-        if self.peek() == Some(':') {
-            self.bump();
-            let end = Some(self.parse_positional()?);
-            return Ok(RangeRef {
-                start: None,
-                end,
-                is_range: true,
-            });
-        }
-        let start = Some(self.parse_positional()?);
-        if self.peek() == Some(':') {
-            self.bump();
-            let end = if self.starts_positional() {
-                Some(self.parse_positional()?)
-            } else {
-                None
-            };
-            Ok(RangeRef {
-                start,
-                end,
-                is_range: true,
-            })
-        } else {
-            Ok(RangeRef {
-                start,
-                end: None,
-                is_range: false,
-            })
-        }
-    }
-
-    fn parse_positional(&mut self) -> Result<Positional> {
-        match self.peek() {
-            Some('$') => {
-                self.bump();
-                Ok(Positional::LastRow)
-            }
-            Some('[') => Ok(Positional::Name(self.parse_name()?)),
-            Some(c) if c.is_ascii_alphabetic() => {
-                let mut letters = String::new();
-                while let Some(c) = self.peek() {
-                    if c.is_ascii_alphabetic() {
-                        letters.push(c);
-                        self.bump();
-                    } else {
-                        break;
-                    }
-                }
-                let col = letter_to_col(&letters);
-                if self.peek().is_some_and(|c| c.is_ascii_digit()) {
-                    let row = self.read_number()?;
-                    Ok(Positional::Cell { col, row })
-                } else {
-                    Ok(Positional::Column(col))
-                }
-            }
-            Some(c) if c.is_ascii_digit() => Ok(Positional::Row(self.read_number()?)),
-            other => Err(parse(format!(
-                "expected an address (cell, column, row, [name], or $), found {other:?}"
-            ))),
-        }
+    /// Read one positional address, delegating the grammar to `xaddr`.
+    ///
+    /// An address here has no delimiter — it ends wherever the command that follows begins —
+    /// so `parse_prefix` reports how far it got and the cursor advances by exactly that. The
+    /// byte count it returns is converted to characters, since this parser indexes by `char`.
+    fn parse_range(&mut self) -> Result<xaddr::Spec> {
+        let rest = self.rest();
+        let (spec, used) = xaddr::parse_prefix(&rest).map_err(|e| parse(e.message))?;
+        self.pos += rest[..used].chars().count();
+        Ok(spec)
     }
 
     fn parse_name(&mut self) -> Result<String> {
@@ -323,19 +268,6 @@ impl Parser {
             }
         }
         Ok(name)
-    }
-
-    fn read_number(&mut self) -> Result<usize> {
-        let mut s = String::new();
-        while let Some(c) = self.peek() {
-            if c.is_ascii_digit() {
-                s.push(c);
-                self.bump();
-            } else {
-                break;
-            }
-        }
-        s.parse::<usize>().map_err(|_| parse(format!("bad number {s:?}")))
     }
 
     // --- command -----------------------------------------------------------
@@ -808,12 +740,6 @@ impl Parser {
         }
     }
 
-    fn starts_positional(&self) -> bool {
-        match self.peek() {
-            Some(c) => c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '[' || c == '$',
-            None => false,
-        }
-    }
 }
 
 /// A sed `s///` delimiter is the char right after `s`: any non-alphanumeric that is not a

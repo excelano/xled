@@ -2,7 +2,7 @@
 //! command. Slice 1 implements `show` (and the implicit show of a bare reference), which
 //! renders the selected cells back to CSV/DSV text.
 
-use crate::ast::{Command, DropAxis, Expr, Positional, RangeRef, Reference, Statement};
+use crate::ast::{lone_column, Command, DropAxis, Expr, Reference, Statement};
 use crate::errors::{parse, Result, XledError};
 use crate::expr::{self, EvalErr};
 use crate::model::Buffer;
@@ -407,28 +407,25 @@ fn apply_assign(
 fn assign_target(buf: &Buffer, reference: &Reference) -> Result<(usize, Vec<usize>, Option<String>)> {
     let all_rows = || (0..buf.nrows()).collect::<Vec<_>>();
     match reference {
-        // bare [name]: existing column, or create a new one
-        Reference::Range(RangeRef {
-            start: Some(Positional::Name(name)),
-            end: None,
-            is_range: false,
-        }) => match buf.name_to_col(name) {
-            Some(c) => Ok((c, all_rows(), None)),
-            // A new column can only carry a name if there's a header row to hold it.
-            // Without one the name has nowhere to live: it would be silently dropped and
-            // each re-run would append another unnamed column. Refuse instead.
-            None if buf.header.is_none() => Err(XledError::Correction(format!(
-                "no header to name column [{name}] — promote one first (`1 header`) or assign by letter (`{} = …`).",
-                crate::model::col_to_letter(buf.ncols())
-            ))),
-            None => Ok((buf.ncols(), all_rows(), Some(name.clone()))),
-        },
-        // bare column letter: existing or new-by-letter (no name)
-        Reference::Range(RangeRef {
-            start: Some(Positional::Column(c)),
-            end: None,
-            is_range: false,
-        }) => Ok((*c, all_rows(), None)),
+        // A bare column is the target directly — every row of it, no resolution needed.
+        Reference::Range(spec) if lone_column(spec).is_some() => {
+            match lone_column(spec).expect("guarded by the arm's condition") {
+                // by name: an existing column, or one this assignment creates
+                xaddr::ColRef::Name(name) => match buf.name_to_col(name) {
+                    Some(c) => Ok((c, all_rows(), None)),
+                    // A new column can only carry a name if there's a header row to hold it.
+                    // Without one the name has nowhere to live: it would be silently dropped and
+                    // each re-run would append another unnamed column. Refuse instead.
+                    None if buf.header.is_none() => Err(XledError::Correction(format!(
+                        "no header to name column [{name}] — promote one first (`1 header`) or assign by letter (`{} = …`).",
+                        crate::model::col_to_letter(buf.ncols())
+                    ))),
+                    None => Ok((buf.ncols(), all_rows(), Some(name.clone()))),
+                },
+                // by letter: existing or new-by-letter (no name)
+                xaddr::ColRef::Letters(c) => Ok((*c, all_rows(), None)),
+            }
+        }
         // general: resolve, require exactly one column
         other => {
             let set = resolver::resolve(buf, other)?;

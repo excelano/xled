@@ -21,6 +21,7 @@ encsniff = "0.1.0"
 # today(), which must read the local calendar day: a UTC-only build would name the wrong
 # day for part of every day in most of the world.
 chrono = { version = "0.4.38", default-features = false, features = ["std", "clock"] }
+xaddr = "0.2"
 
 [package.metadata.deb]
 maintainer = "David M. Anderson <david.anderson@excelano.com>"

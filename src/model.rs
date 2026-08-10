@@ -80,43 +80,23 @@ impl Buffer {
     }
 }
 
-/// Column letters → 0-based index. "A"→0, "Z"→25, "AA"→26. Letters are uppercased first.
-pub fn letter_to_col(s: &str) -> usize {
-    let mut n: usize = 0;
-    for ch in s.chars() {
-        n = n * 26 + (ch.to_ascii_uppercase() as usize - 'A' as usize + 1);
-    }
-    n - 1
-}
+/// Column letters ↔ index lives in `xaddr` now, so xled and xshape cannot drift apart on it.
+pub use xaddr::col_to_letter;
 
-/// 0-based index → column letters. Inverse of [`letter_to_col`].
-pub fn col_to_letter(mut c: usize) -> String {
-    let mut s = Vec::new();
-    loop {
-        s.push(b'A' + (c % 26) as u8);
-        if c < 26 {
-            break;
-        }
-        c = c / 26 - 1;
-    }
-    s.reverse();
-    String::from_utf8(s).unwrap()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn letters_round_trip() {
-        for (i, s) in [(0, "A"), (25, "Z"), (26, "AA"), (27, "AB"), (51, "AZ"), (52, "BA")] {
-            assert_eq!(letter_to_col(s), i);
-            assert_eq!(col_to_letter(i), s);
-        }
+/// Everything `xaddr` needs to resolve an address against this buffer.
+///
+/// `name_to_col` is left to the trait's default, which is the same exact, case-sensitive
+/// position match the inherent method does.
+impl xaddr::Grid for Buffer {
+    fn nrows(&self) -> usize {
+        Buffer::nrows(self)
     }
 
-    #[test]
-    fn lowercase_letters_accepted() {
-        assert_eq!(letter_to_col("c"), letter_to_col("C"));
+    fn ncols(&self) -> usize {
+        Buffer::ncols(self)
+    }
+
+    fn header(&self) -> Option<&[String]> {
+        self.header.as_deref()
     }
 }

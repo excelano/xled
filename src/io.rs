@@ -46,8 +46,8 @@ pub fn read_file(path: &str, delim: Option<u8>, has_header: bool) -> Result<Buff
     sniff_and_warn(path);
     // Name the file in the error. A bare "No such file or directory" is useless
     // in a script that reads several, and the OS error alone does not carry it.
-    let data = std::fs::read_to_string(path)
-        .map_err(|e| crate::XledError::Io(format!("{path}: {e}")))?;
+    let data =
+        std::fs::read_to_string(path).map_err(|e| crate::XledError::Io(format!("{path}: {e}")))?;
     // UTF-8 BOM from Excel "Save as CSV UTF-8" — strip it so the first column
     // name doesn't carry a U+FEFF character.
     let trimmed = data.strip_prefix('\u{FEFF}').unwrap_or(&data);
@@ -59,7 +59,9 @@ pub fn read_file(path: &str, delim: Option<u8>, has_header: bool) -> Result<Buff
 /// when warranted. Sniff failures are silently ignored — the downstream read
 /// will surface a clearer error if the file is really unreadable.
 fn sniff_and_warn(path: &str) {
-    let Ok(s) = encsniff::sniff_file(path) else { return };
+    let Ok(s) = encsniff::sniff_file(path) else {
+        return;
+    };
     if s.action != encsniff::Action::Warn {
         return;
     }

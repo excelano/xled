@@ -57,7 +57,10 @@ impl Buffer {
 
     /// The header label for a column, if a header overlay exists.
     pub fn col_name(&self, c: usize) -> Option<&str> {
-        self.header.as_ref().and_then(|h| h.get(c)).map(|s| s.as_str())
+        self.header
+            .as_ref()
+            .and_then(|h| h.get(c))
+            .map(|s| s.as_str())
     }
 
     /// Resolve a bracketed column name to its index. Case-sensitive, exact (`[userId]` ≠ `userid`).

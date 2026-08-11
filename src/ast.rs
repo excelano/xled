@@ -25,7 +25,10 @@ pub enum Reference {
     /// resolution live in `xaddr`; predicates below are xled's, since they need an evaluator.
     Range(xaddr::Spec),
     /// `/re/` — rows where any cell matches.
-    RegexSel { body: String, ci: bool },
+    RegexSel {
+        body: String,
+        ci: bool,
+    },
     /// `[col]~/re/` (or `!~`) — rows where a named column matches (or doesn't).
     ColRegexSel {
         col: String,

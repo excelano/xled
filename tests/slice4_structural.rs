@@ -135,12 +135,18 @@ fn describe_flags_a_buried_header() {
     // The narrow preamble defeats leading-blank-count; the modal-width heuristic catches it.
     let out = run_out(PREAMBLE, b',', false, "describe");
     assert!(out.contains("suspected header row: 5"), "got: {out}");
-    assert!(out.contains("5 header"), "should suggest the actionable verb, got: {out}");
+    assert!(
+        out.contains("5 header"),
+        "should suggest the actionable verb, got: {out}"
+    );
 }
 
 #[test]
 fn describe_does_not_invent_a_header_on_a_clean_table() {
     // A table whose header is genuinely row 1 must not get a buried-header guess.
     let out = run_out(PRODUCTS, b',', true, "describe");
-    assert!(!out.contains("suspected header row"), "false positive: {out}");
+    assert!(
+        !out.contains("suspected header row"),
+        "false positive: {out}"
+    );
 }

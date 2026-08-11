@@ -101,7 +101,8 @@ fn eval_bin(op: BinOp, a: Value, b: Value) -> Result<Value, EvalErr> {
         (BinOp::Sub, Value::Date(x), Value::Date(y)) => {
             return Ok(Value::Num(x.signed_duration_since(*y).num_days() as f64));
         }
-        (BinOp::Add, Value::Date(d), Value::Num(n)) | (BinOp::Add, Value::Num(n), Value::Date(d)) => {
+        (BinOp::Add, Value::Date(d), Value::Num(n))
+        | (BinOp::Add, Value::Num(n), Value::Date(d)) => {
             return offset_days(*d, *n);
         }
         (BinOp::Sub, Value::Date(d), Value::Num(n)) => return offset_days(*d, -*n),
@@ -244,29 +245,44 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
         // lowercase), so `upper([c])` and `[c] s/.*/\U&/` never diverge on non-ASCII.
         "upper" => {
             want(1)?;
-            Ok(Value::Str(eval(buf, row, &args[0])?.as_string().to_uppercase()))
+            Ok(Value::Str(
+                eval(buf, row, &args[0])?.as_string().to_uppercase(),
+            ))
         }
         "lower" => {
             want(1)?;
-            Ok(Value::Str(eval(buf, row, &args[0])?.as_string().to_lowercase()))
+            Ok(Value::Str(
+                eval(buf, row, &args[0])?.as_string().to_lowercase(),
+            ))
         }
         "proper" => {
             want(1)?;
-            Ok(Value::Str(title_case(&eval(buf, row, &args[0])?.as_string())))
+            Ok(Value::Str(title_case(
+                &eval(buf, row, &args[0])?.as_string(),
+            )))
         }
         // Whitespace stripping: Unicode `char::is_whitespace`, so Excel's non-breaking space
         // (U+00A0) is trimmed too — a common exported-CSV artifact.
         "trim" => {
             want(1)?;
-            Ok(Value::Str(eval(buf, row, &args[0])?.as_string().trim().to_string()))
+            Ok(Value::Str(
+                eval(buf, row, &args[0])?.as_string().trim().to_string(),
+            ))
         }
         "ltrim" => {
             want(1)?;
-            Ok(Value::Str(eval(buf, row, &args[0])?.as_string().trim_start().to_string()))
+            Ok(Value::Str(
+                eval(buf, row, &args[0])?
+                    .as_string()
+                    .trim_start()
+                    .to_string(),
+            ))
         }
         "rtrim" => {
             want(1)?;
-            Ok(Value::Str(eval(buf, row, &args[0])?.as_string().trim_end().to_string()))
+            Ok(Value::Str(
+                eval(buf, row, &args[0])?.as_string().trim_end().to_string(),
+            ))
         }
         // Pad to a fixed width — the leading-zero restorer: `lpad([zip], 5, "0")`. Never
         // truncates (a wider value passes through), because silent data loss is the same
@@ -321,7 +337,11 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
             let mut acc = cast_num(&eval(buf, row, &args[0])?)?;
             for a in &args[1..] {
                 let v = cast_num(&eval(buf, row, a)?)?;
-                acc = if name == "min" { acc.min(v) } else { acc.max(v) };
+                acc = if name == "min" {
+                    acc.min(v)
+                } else {
+                    acc.max(v)
+                };
             }
             Ok(Value::Num(acc))
         }
@@ -346,7 +366,9 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
                          a YYYY (or YY) token to it."
                     ))));
                 }
-                return date::parse_with(&s, &fmt).map(Value::Date).ok_or(EvalErr::Cast);
+                return date::parse_with(&s, &fmt)
+                    .map(Value::Date)
+                    .ok_or(EvalErr::Cast);
             }
             if let Some(d) = date::parse_iso(&s) {
                 return Ok(Value::Date(d));

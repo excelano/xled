@@ -1,0 +1,15 @@
+name: ci
+
+# The checks themselves live in excelano/.github, so every Rust repo in the
+# fleet runs the same ones and a correction reaches all of them at once. What
+# stays here is when to run: that is this repo's business, the policy is the
+# fleet's.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: excelano/.github/.github/workflows/rust-ci.yml@main

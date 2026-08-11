@@ -27,7 +27,10 @@ fn column_contents() {
 
 #[test]
 fn explicit_show_equals_bare_reference() {
-    assert_eq!(show(PRODUCTS, b',', "[price] show"), show(PRODUCTS, b',', "[price]"));
+    assert_eq!(
+        show(PRODUCTS, b',', "[price] show"),
+        show(PRODUCTS, b',', "[price]")
+    );
 }
 
 #[test]
@@ -74,7 +77,10 @@ fn open_ended_and_last_row() {
     let to_end = show(PRODUCTS, b',', "2:");
     assert!(to_end.ends_with("Safety Goggles,safety,7.99,SF-0003"));
     assert!(to_end.contains("Gadget,gizmos,9.50,GZ-0101"));
-    assert_eq!(show(PRODUCTS, b',', "$"), "name,category,price,sku\nSafety Goggles,safety,7.99,SF-0003");
+    assert_eq!(
+        show(PRODUCTS, b',', "$"),
+        "name,category,price,sku\nSafety Goggles,safety,7.99,SF-0003"
+    );
 }
 
 #[test]

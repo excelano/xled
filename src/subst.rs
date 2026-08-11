@@ -166,7 +166,10 @@ mod tests {
 
     #[test]
     fn backrefs_and_whole_match() {
-        assert_eq!(sub(r"(\d+)", r"[\1]", "abc 42 xyz", false, None), "abc [42] xyz");
+        assert_eq!(
+            sub(r"(\d+)", r"[\1]", "abc 42 xyz", false, None),
+            "abc [42] xyz"
+        );
         assert_eq!(sub(r"\d+", r"<&>", "x9", false, None), "x<9>");
         // M/D/Y → Y-M-D
         assert_eq!(

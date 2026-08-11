@@ -102,7 +102,10 @@ fn real_main(cli: Cli) -> xled::Result<()> {
     let delim = cli.delim;
     let stdin_tty = io::stdin().is_terminal();
     let in_place = cli.in_place.as_deref();
-    let opts = exec::RenderOpts { raw: cli.raw, number: cli.number };
+    let opts = exec::RenderOpts {
+        raw: cli.raw,
+        number: cli.number,
+    };
 
     // -f/--file reads the script from a file; the lone positional (if any) is then the input
     // file, so the script-vs-file polymorphism of the bare single-positional form disappears.
@@ -122,7 +125,11 @@ fn real_main(cli: Cli) -> xled::Result<()> {
                     eprintln!("xled: -f needs data: give an input file or pipe data in");
                     exit(2);
                 }
-                emit(render(read_stdin(delim, has_header)?, &script, opts)?, in_place, None)
+                emit(
+                    render(read_stdin(delim, has_header)?, &script, opts)?,
+                    in_place,
+                    None,
+                )
             }
         };
     }
@@ -149,7 +156,9 @@ fn real_main(cli: Cli) -> xled::Result<()> {
         }
         (None, _) => {
             eprintln!("xled: no script given");
-            eprintln!("usage: xled '<command>' <file>   |   <data> | xled '<command>'   |   xled <file>");
+            eprintln!(
+                "usage: xled '<command>' <file>   |   <data> | xled '<command>'   |   xled <file>"
+            );
             exit(2);
         }
     }

@@ -168,7 +168,10 @@ fn single_address_past_the_end_selects_nothing() {
 #[test]
 fn substitution_with_angle_brackets_is_not_read_as_a_comparison() {
     let prepend = run(QUOTED, r"[note] s/^/>> /");
-    assert_eq!(b_note(&prepend, 0), ">> Called re: order. Said \"too slow\" — follow up.");
+    assert_eq!(
+        b_note(&prepend, 0),
+        ">> Called re: order. Said \"too slow\" — follow up."
+    );
     // exactly one prefix on the multi-line cell (cell-bounded ^)
     assert!(b_note(&prepend, 1).starts_with(">> Multi-line"));
     assert_eq!(b_note(&prepend, 1).matches(">> ").count(), 1);

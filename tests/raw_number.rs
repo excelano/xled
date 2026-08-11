@@ -19,7 +19,12 @@ fn run(args: &[&str], stdin: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn xled");
-    child.stdin.take().unwrap().write_all(stdin.as_bytes()).unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(stdin.as_bytes())
+        .unwrap();
     child.wait_with_output().expect("wait for xled")
 }
 
@@ -48,11 +53,20 @@ fn number_csv_prefixes_logical_row_and_survives_embedded_newline() {
     let out = run(&["--number", "[description]"], CSV);
     assert!(out.status.success());
     let text = stdout(&out);
-    assert!(text.starts_with("row,description\n"), "leading row column in header: {text:?}");
+    assert!(
+        text.starts_with("row,description\n"),
+        "leading row column in header: {text:?}"
+    );
     // Row 1's value spans two physical lines, yet row 2 is still numbered 2 and row 3 is 3 —
     // the numbering tracks logical rows, which is the whole point of #4.
-    assert!(text.contains("\n2,plain\n"), "row 2 numbered logically: {text:?}");
-    assert!(text.contains("3,\"has,comma\""), "row 3 numbered logically: {text:?}");
+    assert!(
+        text.contains("\n2,plain\n"),
+        "row 2 numbered logically: {text:?}"
+    );
+    assert!(
+        text.contains("3,\"has,comma\""),
+        "row 3 numbered logically: {text:?}"
+    );
 }
 
 #[test]
@@ -73,7 +87,10 @@ fn row_function_is_rejected_with_a_trail_to_number_flag() {
     let out = run(&["[n] = row()"], CSV);
     assert!(!out.status.success());
     let err = String::from_utf8_lossy(&out.stderr);
-    assert!(err.contains("--number"), "points at the --number flag: {err:?}");
+    assert!(
+        err.contains("--number"),
+        "points at the --number flag: {err:?}"
+    );
 }
 
 #[test]
@@ -83,8 +100,14 @@ fn raw_number_have_no_effect_on_a_mutation_but_do_not_fail() {
     let out = run(&["--raw", "--number", "[id] s/0//g"], CSV);
     assert!(out.status.success());
     let text = stdout(&out);
-    assert!(text.starts_with("id,description\n"), "still a full CSV table: {text:?}");
+    assert!(
+        text.starts_with("id,description\n"),
+        "still a full CSV table: {text:?}"
+    );
     assert!(text.contains("\n1,"), "the s/0//g edit applied: {text:?}");
     let err = String::from_utf8_lossy(&out.stderr);
-    assert!(err.contains("had no effect"), "notes that the flags were inert: {err:?}");
+    assert!(
+        err.contains("had no effect"),
+        "notes that the flags were inert: {err:?}"
+    );
 }

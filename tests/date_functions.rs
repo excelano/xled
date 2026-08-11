@@ -49,7 +49,10 @@ fn casting_a_column_normalizes_it_to_iso() {
 fn an_unreadable_value_is_skipped_and_tallied_not_fatal() {
     let n = notices(EURO, r#"[d] = date([d], "DD/MM/YYYY")"#);
     assert_eq!(n.len(), 1);
-    assert!(n[0].contains("skipped"), "the one bad row is tallied: {n:?}");
+    assert!(
+        n[0].contains("skipped"),
+        "the one bad row is tallied: {n:?}"
+    );
 }
 
 // --- the refusal to guess -----------------------------------------------------------------
@@ -64,7 +67,10 @@ fn a_bare_cast_reads_iso() {
 fn an_ambiguous_value_halts_and_names_both_readings() {
     let e = err(EURO, r"[out] = date([d])");
     assert!(e.contains("ambiguous"), "{e}");
-    assert!(e.contains("DD/MM/YYYY") && e.contains("MM/DD/YYYY"), "both readings named: {e}");
+    assert!(
+        e.contains("DD/MM/YYYY") && e.contains("MM/DD/YYYY"),
+        "both readings named: {e}"
+    );
 }
 
 #[test]
@@ -73,7 +79,10 @@ fn a_recognizable_but_unambiguous_layout_still_has_to_be_spelled_out() {
     // layout per row, which is the guess the whole design refuses. Halt, and say so.
     let e = err("id,d\n1,15/07/2023\n", r"[out] = date([d])");
     assert!(e.contains("does not guess"), "{e}");
-    assert!(e.contains("DD/MM/YYYY"), "the fix names the layout that would read it: {e}");
+    assert!(
+        e.contains("DD/MM/YYYY"),
+        "the fix names the layout that would read it: {e}"
+    );
 }
 
 #[test]
@@ -88,7 +97,10 @@ fn a_value_that_is_no_date_at_all_is_data_not_program() {
 
 #[test]
 fn subtracting_two_dates_gives_days() {
-    let b = run("id,a,b\n1,2024-03-04,2024-01-01\n", r"[out] = date([a]) - date([b])");
+    let b = run(
+        "id,a,b\n1,2024-03-04,2024-01-01\n",
+        r"[out] = date([a]) - date([b])",
+    );
     assert_eq!(b.cell(0, 3), "63"); // 2024 is a leap year: 31 + 29 + 3
 }
 
@@ -147,7 +159,10 @@ fn text_renders_a_date_under_an_excel_format() {
 
 #[test]
 fn a_round_trip_through_text_and_back_is_lossless() {
-    let b = run(ISO, r#"[out] = date(text(date([d]), "DD/MM/YYYY"), "DD/MM/YYYY")"#);
+    let b = run(
+        ISO,
+        r#"[out] = date(text(date([d]), "DD/MM/YYYY"), "DD/MM/YYYY")"#,
+    );
     assert_eq!(b.cell(0, 2), "2024-03-04");
 }
 
@@ -156,7 +171,10 @@ fn a_round_trip_through_text_and_back_is_lossless() {
 #[test]
 fn a_missing_cast_halts_with_the_corrected_form() {
     let e = err(ISO, r"[out] = year([d])");
-    assert!(e.contains("year(date([col]))"), "the fix is shown, not described: {e}");
+    assert!(
+        e.contains("year(date([col]))"),
+        "the fix is shown, not described: {e}"
+    );
 }
 
 #[test]
@@ -170,7 +188,10 @@ fn text_on_a_number_says_not_yet_rather_than_unknown() {
 fn num_on_a_date_refuses_serial_numbers() {
     let e = err(ISO, r"[out] = num(date([d]))");
     assert!(e.contains("serial number"), "{e}");
-    assert!(e.contains("year()"), "it names what the caller actually wanted: {e}");
+    assert!(
+        e.contains("year()"),
+        "it names what the caller actually wanted: {e}"
+    );
 }
 
 #[test]
@@ -194,5 +215,10 @@ fn today_is_one_date_for_the_whole_run() {
     let b = run("id\n1\n2\n3\n", r"[out] = today()");
     assert_eq!(b.cell(0, 1), b.cell(1, 1));
     assert_eq!(b.cell(1, 1), b.cell(2, 1));
-    assert_eq!(b.cell(0, 1).len(), 10, "ISO, like every other date: {}", b.cell(0, 1));
+    assert_eq!(
+        b.cell(0, 1).len(),
+        10,
+        "ISO, like every other date: {}",
+        b.cell(0, 1)
+    );
 }

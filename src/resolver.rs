@@ -52,12 +52,9 @@ pub fn resolve(buf: &Buffer, r: &Reference) -> Result<CellSet> {
                 .collect())
         }
         Reference::RegexSel { body, ci } => resolve_regex(buf, body, *ci),
-        Reference::ColRegexSel {
-            col,
-            neg,
-            body,
-            ci,
-        } => resolve_col_regex(buf, col, *neg, body, *ci),
+        Reference::ColRegexSel { col, neg, body, ci } => {
+            resolve_col_regex(buf, col, *neg, body, *ci)
+        }
         Reference::Comparison(e) => resolve_comparison(buf, e),
         // Bounds::Clamp is sed's reading of `2,$`: addressing past the end stops at the end
         // and invents nothing. xshape chooses Strict for the same grammar, because a reshape

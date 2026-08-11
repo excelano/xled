@@ -74,7 +74,11 @@ fn keep_only_the_digits() {
 #[test]
 fn join_two_columns_with_a_separator() {
     // join is in scope: assignment concatenates into one column.
-    let b = run(CONTACTS, true, r#"[label] = [name] & " <" & [company] & ">""#);
+    let b = run(
+        CONTACTS,
+        true,
+        r#"[label] = [name] & " <" & [company] & ">""#,
+    );
     assert_eq!(b.col_name(4), Some("label"));
     assert_eq!(b.cell(0, 4), "Alice Nguyen <Acme Corp>");
 }

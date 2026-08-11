@@ -44,10 +44,7 @@ fn parse_statement(line: &str) -> Result<Statement> {
     };
     p.skip_spaces();
     if !p.eof() {
-        return Err(parse(format!(
-            "unexpected trailing input: {:?}",
-            p.rest()
-        )));
+        return Err(parse(format!("unexpected trailing input: {:?}", p.rest())));
     }
     Ok(Statement { reference, command })
 }
@@ -300,7 +297,9 @@ impl Parser {
                 self.skip_spaces();
                 match self.read_lower_word().as_str() {
                     "" | "down" => Ok(Command::Fill),
-                    other => Err(parse(format!("fill takes an optional 'down', not {other:?}"))),
+                    other => Err(parse(format!(
+                        "fill takes an optional 'down', not {other:?}"
+                    ))),
                 }
             }
             "drop" => {
@@ -313,7 +312,11 @@ impl Parser {
                     "" => DropAxis::Both,
                     "rows" => DropAxis::Rows,
                     "cols" => DropAxis::Cols,
-                    other => return Err(parse(format!("drop blanks takes 'rows' or 'cols', not {other:?}"))),
+                    other => {
+                        return Err(parse(format!(
+                            "drop blanks takes 'rows' or 'cols', not {other:?}"
+                        )))
+                    }
                 };
                 Ok(Command::DropBlanks(axis))
             }
@@ -525,9 +528,7 @@ impl Parser {
                     "false" => Ok(Expr::Bool(false)),
                     _ => {
                         if self.peek() != Some('(') {
-                            return Err(parse(format!(
-                                "expected '(' after function {ident}"
-                            )));
+                            return Err(parse(format!("expected '(' after function {ident}")));
                         }
                         self.parse_call(ident)
                     }
@@ -556,7 +557,11 @@ impl Parser {
                     self.bump();
                     break;
                 }
-                other => return Err(parse(format!("expected ',' or ')' in {name}(), found {other:?}"))),
+                other => {
+                    return Err(parse(format!(
+                        "expected ',' or ')' in {name}(), found {other:?}"
+                    )))
+                }
             }
         }
         Ok(Expr::Call(name, args))
@@ -598,7 +603,8 @@ impl Parser {
                 s.push(self.bump().unwrap());
             }
         }
-        s.parse::<f64>().map_err(|_| parse(format!("bad number {s:?}")))
+        s.parse::<f64>()
+            .map_err(|_| parse(format!("bad number {s:?}")))
     }
 
     /// Peek a comparison operator (not the single `=`, which is assignment).
@@ -739,7 +745,6 @@ impl Parser {
             None => false,
         }
     }
-
 }
 
 /// A sed `s///` delimiter is the char right after `s`: any non-alphanumeric that is not a
@@ -748,9 +753,7 @@ impl Parser {
 fn is_subst_delim(c: Option<char>) -> bool {
     match c {
         Some(c) => {
-            !c.is_alphanumeric()
-                && !c.is_whitespace()
-                && !matches!(c, ',' | ':' | '(' | ')' | '!')
+            !c.is_alphanumeric() && !c.is_whitespace() && !matches!(c, ',' | ':' | '(' | ')' | '!')
         }
         None => false,
     }

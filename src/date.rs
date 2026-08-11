@@ -244,7 +244,11 @@ impl Scan<'_> {
             self.i = start;
             return None;
         }
-        self.c[start..self.i].iter().collect::<String>().parse().ok()
+        self.c[start..self.i]
+            .iter()
+            .collect::<String>()
+            .parse()
+            .ok()
     }
 
     /// Match a name from either candidate list, longest first so "June" is not read as "Jun"
@@ -311,7 +315,13 @@ mod tests {
     #[test]
     fn render_and_parse_round_trip() {
         let d = ymd(2024, 3, 4);
-        for fmt in ["DD/MM/YYYY", "YYYY-MM-DD", "D MMM YYYY", "MMMM D, YYYY", "YYYYMMDD"] {
+        for fmt in [
+            "DD/MM/YYYY",
+            "YYYY-MM-DD",
+            "D MMM YYYY",
+            "MMMM D, YYYY",
+            "YYYYMMDD",
+        ] {
             let s = render(d, fmt);
             assert_eq!(parse_with(&s, fmt), Some(d), "round trip failed for {fmt}");
         }
@@ -335,21 +345,36 @@ mod tests {
     fn parse_rejects_impossible_dates() {
         // the calendar check is chrono's, but it has to survive the token walk to reach it
         assert_eq!(parse_with("31/02/2024", "DD/MM/YYYY"), None);
-        assert_eq!(parse_with("29/02/2024", "DD/MM/YYYY"), Some(ymd(2024, 2, 29)));
+        assert_eq!(
+            parse_with("29/02/2024", "DD/MM/YYYY"),
+            Some(ymd(2024, 2, 29))
+        );
         assert_eq!(parse_with("29/02/2023", "DD/MM/YYYY"), None);
     }
 
     #[test]
     fn month_names_read_at_either_width() {
-        assert_eq!(parse_with("1 September 2024", "D MMM YYYY"), Some(ymd(2024, 9, 1)));
-        assert_eq!(parse_with("1 Sep 2024", "D MMMM YYYY"), Some(ymd(2024, 9, 1)));
+        assert_eq!(
+            parse_with("1 September 2024", "D MMM YYYY"),
+            Some(ymd(2024, 9, 1))
+        );
+        assert_eq!(
+            parse_with("1 Sep 2024", "D MMMM YYYY"),
+            Some(ymd(2024, 9, 1))
+        );
         // "June" is not read as "Jun" with a leftover "e"
-        assert_eq!(parse_with("1 June 2024", "D MMM YYYY"), Some(ymd(2024, 6, 1)));
+        assert_eq!(
+            parse_with("1 June 2024", "D MMM YYYY"),
+            Some(ymd(2024, 6, 1))
+        );
     }
 
     #[test]
     fn weekday_names_are_consumed_and_ignored() {
-        assert_eq!(parse_with("Mon, 4 Mar 2024", "DDD, D MMM YYYY"), Some(ymd(2024, 3, 4)));
+        assert_eq!(
+            parse_with("Mon, 4 Mar 2024", "DDD, D MMM YYYY"),
+            Some(ymd(2024, 3, 4))
+        );
     }
 
     #[test]

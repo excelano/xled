@@ -104,7 +104,10 @@ fn pad_fill_repeats_and_empty_fill_passes_through() {
 #[test]
 fn pad_rejects_wrong_arity() {
     let e = err(ZIPS, r"[out] = lpad([zip])");
-    assert!(e.contains("2 or 3 arguments"), "arity error names the shape: {e}");
+    assert!(
+        e.contains("2 or 3 arguments"),
+        "arity error names the shape: {e}"
+    );
 }
 
 // --- numeric helpers -----------------------------------------------------
@@ -124,19 +127,25 @@ fn mod_takes_the_dividend_sign_and_skips_divide_by_zero() {
     assert_eq!(b.cell(1, 2), ""); // mod(7, 0): the row is skipped, the new cell stays empty
     let n = notices(NUMS, r"[out] = mod([a], [b])");
     assert_eq!(n.len(), 1);
-    assert!(n[0].contains("skipped"), "the divide-by-zero row is tallied: {n:?}");
+    assert!(
+        n[0].contains("skipped"),
+        "the divide-by-zero row is tallied: {n:?}"
+    );
 }
 
 #[test]
 fn min_and_max_are_numeric_and_variadic() {
     assert_eq!(run(NUMS, r"[out] = min([a], [b])").cell(0, 2), "-3"); // min(-3, 5)
     assert_eq!(run(NUMS, r"[out] = max([a], [b])").cell(0, 2), "5"); // max(-3, 5)
-    // A third (literal) arg proves variadic: max(-3, 5, 100) = 100
+                                                                     // A third (literal) arg proves variadic: max(-3, 5, 100) = 100
     assert_eq!(run(NUMS, r"[out] = max([a], [b], 100)").cell(0, 2), "100");
 }
 
 #[test]
 fn min_rejects_zero_args() {
     let e = err(NUMS, r"[out] = min()");
-    assert!(e.contains("at least one argument"), "arity error is explicit: {e}");
+    assert!(
+        e.contains("at least one argument"),
+        "arity error is explicit: {e}"
+    );
 }

@@ -35,7 +35,8 @@ impl Session {
         }
         let mut working = self.buf.clone();
         let out = exec::run(&mut working, program)?; // on error, self.buf is untouched
-        self.undo_stack.push(std::mem::replace(&mut self.buf, working));
+        self.undo_stack
+            .push(std::mem::replace(&mut self.buf, working));
         self.dirty = true;
         Ok(out)
     }

@@ -208,7 +208,11 @@ fn do_crop(buf: &mut Buffer, scope: &CellSet) -> Result<()> {
     let max_c = scope.iter().map(|&(_, c)| c).max().unwrap();
 
     let new_rows: Vec<Vec<String>> = (min_r..=max_r)
-        .map(|r| (min_c..=max_c).map(|c| buf.cell(r, c).to_string()).collect())
+        .map(|r| {
+            (min_c..=max_c)
+                .map(|c| buf.cell(r, c).to_string())
+                .collect()
+        })
         .collect();
     buf.rows = new_rows;
     buf.header = None; // the cropped region is pure data; re-establish names with `header`
@@ -234,7 +238,8 @@ fn do_rename(buf: &mut Buffer, scope: &CellSet, name: &str) -> Result<()> {
     let cols: Vec<usize> = cols_of(scope).into_iter().collect();
     if as_whole_cols(scope, nrows).is_none_or(|c| c.len() != 1) {
         return Err(XledError::Correction(
-            "rename takes exactly one column — address a single column, e.g. [old] rename new".into(),
+            "rename takes exactly one column — address a single column, e.g. [old] rename new"
+                .into(),
         ));
     }
     let c = cols[0];
@@ -303,7 +308,9 @@ fn do_drop_blanks(buf: &mut Buffer, axis: DropAxis) {
                 .collect();
         }
         if let Some(h) = buf.header.as_mut() {
-            *h = (first..=last).map(|c| h.get(c).cloned().unwrap_or_default()).collect();
+            *h = (first..=last)
+                .map(|c| h.get(c).cloned().unwrap_or_default())
+                .collect();
         }
     }
 }
@@ -334,7 +341,11 @@ fn describe(buf: &Buffer) -> String {
             *freq.entry(w).or_default() += 1;
         }
     }
-    let body_width = freq.iter().max_by_key(|(_, &n)| n).map(|(&w, _)| w).unwrap_or(0);
+    let body_width = freq
+        .iter()
+        .max_by_key(|(_, &n)| n)
+        .map(|(&w, _)| w)
+        .unwrap_or(0);
     let header_guess = (body_width >= 2)
         .then(|| (0..nrows).find(|&r| width(r) >= body_width))
         .flatten()
@@ -404,7 +415,10 @@ fn apply_assign(
 }
 
 /// Determine the single target column, the rows to write, and a name if the column is new.
-fn assign_target(buf: &Buffer, reference: &Reference) -> Result<(usize, Vec<usize>, Option<String>)> {
+fn assign_target(
+    buf: &Buffer,
+    reference: &Reference,
+) -> Result<(usize, Vec<usize>, Option<String>)> {
     let all_rows = || (0..buf.nrows()).collect::<Vec<_>>();
     match reference {
         // A bare column is the target directly — every row of it, no resolution needed.
@@ -452,7 +466,10 @@ fn assign_target(buf: &Buffer, reference: &Reference) -> Result<(usize, Vec<usiz
 fn join_rows(rows: &[usize]) -> String {
     const MAX: usize = 8;
     if rows.len() <= MAX {
-        rows.iter().map(|r| r.to_string()).collect::<Vec<_>>().join(", ")
+        rows.iter()
+            .map(|r| r.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
     } else {
         let head: Vec<String> = rows[..MAX].iter().map(|r| r.to_string()).collect();
         format!("{}, … (+{} more)", head.join(", "), rows.len() - MAX)
@@ -503,8 +520,18 @@ pub fn render(buf: &Buffer, scope: &CellSet, opts: RenderOpts) -> String {
 /// column/row selections; a reasonable projection for arbitrary unions. With `number`, a
 /// leading `row` column carries each row's logical 1-based index.
 fn render_csv(buf: &Buffer, scope: &CellSet, number: bool) -> String {
-    let cols: Vec<usize> = scope.iter().map(|&(_, c)| c).collect::<BTreeSet<_>>().into_iter().collect();
-    let rows: Vec<usize> = scope.iter().map(|&(r, _)| r).collect::<BTreeSet<_>>().into_iter().collect();
+    let cols: Vec<usize> = scope
+        .iter()
+        .map(|&(_, c)| c)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let rows: Vec<usize> = scope
+        .iter()
+        .map(|&(r, _)| r)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
 
     let mut wtr = WriterBuilder::new()
         .delimiter(buf.delim)
@@ -512,8 +539,10 @@ fn render_csv(buf: &Buffer, scope: &CellSet, number: bool) -> String {
         .from_writer(Vec::new());
 
     if buf.header.is_some() {
-        let mut rec: Vec<String> =
-            cols.iter().map(|&c| buf.col_name(c).unwrap_or("").to_string()).collect();
+        let mut rec: Vec<String> = cols
+            .iter()
+            .map(|&c| buf.col_name(c).unwrap_or("").to_string())
+            .collect();
         if number {
             rec.insert(0, "row".to_string());
         }
@@ -522,7 +551,13 @@ fn render_csv(buf: &Buffer, scope: &CellSet, number: bool) -> String {
     for &r in &rows {
         let mut rec: Vec<String> = cols
             .iter()
-            .map(|&c| if scope.contains(&(r, c)) { buf.cell(r, c).to_string() } else { String::new() })
+            .map(|&c| {
+                if scope.contains(&(r, c)) {
+                    buf.cell(r, c).to_string()
+                } else {
+                    String::new()
+                }
+            })
             .collect();
         if number {
             rec.insert(0, (r + 1).to_string());

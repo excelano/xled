@@ -27,11 +27,14 @@ pub struct Outcome {
 /// `raw` drops the header and prints just the addressed cell values, one per line, unquoted
 /// (issue #7); `number` prefixes each output row with its logical 1-based row number, so a
 /// pipe keeps xled's own row addressing even across cells with embedded newlines (issue #4).
-/// Both are one-shot CLI options; the REPL always renders the plain table.
+/// `count` replaces the cells with how many rows the address selected (issue #9), and is
+/// exclusive with the other two — there is nothing to format about a single integer.
+/// All are one-shot CLI options; the REPL always renders the plain table.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RenderOpts {
     pub raw: bool,
     pub number: bool,
+    pub count: bool,
 }
 
 /// Run a program with the default (plain-table) inspect rendering.
@@ -516,6 +519,9 @@ fn apply_subst(
 /// value-only stream when `raw` is set. `number` prefixes each output row with its logical
 /// 1-based row number in either mode.
 pub fn render(buf: &Buffer, scope: &CellSet, opts: RenderOpts) -> String {
+    if opts.count {
+        return render_count(scope);
+    }
     if opts.raw {
         render_raw(buf, scope, opts.number)
     } else {
@@ -582,6 +588,18 @@ fn render_csv(buf: &Buffer, scope: &CellSet, number: bool) -> String {
 /// with no header and no CSV quoting — a single-cell read is just the value. With `number`,
 /// each line is prefixed with its cell's logical 1-based row number and a tab (issue #4);
 /// cells in the same logical row share a number.
+/// `grep -c` for an address: how many rows it selected, not what is in them.
+///
+/// Rows rather than cells, de-duplicated, because that is the question being asked — a
+/// regex select spanning three columns of one row found one row, not three. It is also
+/// the count `wc -l` is reached for and gets wrong, since a cell holding a newline makes
+/// a line-based tool count a row twice. The cell tally is deliberately not offered
+/// alongside; two numbers in one field would have to be labelled, and the caller wanting
+/// cells can count the raw render.
+fn render_count(scope: &CellSet) -> String {
+    rows_of(scope).len().to_string()
+}
+
 fn render_raw(buf: &Buffer, scope: &CellSet, number: bool) -> String {
     // A CellSet is a BTreeSet<(row, col)>, so iteration is already row-major.
     scope

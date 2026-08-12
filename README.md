@@ -201,7 +201,16 @@ xled --number '[description]' file.csv    # a reliable row-number -> value map
 xled --raw --number '[description]' file.csv
 ```
 
-Both shape the output of a read (a bare address or `show`); on a script that changes cells they have nothing to format and are ignored. There is deliberately no `row()` function inside a compute — a computed cell sees values, not its own position — so `--number` is the one way to surface row numbers.
+`--count` answers how many rows an address selected instead of printing them — `grep -c` for an address. It counts rows, de-duplicated, so a match spanning three columns of one row counts once:
+
+```sh
+xled --count '/active/' file.csv          # -> 42
+[ "$(xled --count '/error/' log.csv)" -gt 0 ] && echo "found some"
+```
+
+Reach for it instead of piping to `wc -l`, which counts physical lines and so overcounts any table holding a cell with a newline in it — the same drift `--number` exists to correct. An address that matches nothing counts 0 and exits 0: the empty result is the answer, not a failure. Because there is nothing to format about a single integer, `--count` refuses to combine with `--raw` or `--number` rather than letting one of them quietly win.
+
+All three shape the output of a read (a bare address or `show`); on a script that changes cells they have nothing to report on and are ignored. There is deliberately no `row()` function inside a compute — a computed cell sees values, not its own position — so `--number` is the one way to surface row numbers.
 
 ## Expressions
 

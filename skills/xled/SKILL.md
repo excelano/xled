@@ -79,7 +79,8 @@ case-sensitive) before assuming the data was already clean.
 Useful flags: `-d/--delim <char>` (delimiter, `\t` for tab; defaults to `,`, or tab for `.tsv`),
 `-f/--file <script>` (read the script from a file), `--raw` (print just the addressed
 values, no header, no CSV quoting — for shell capture), `--number` (prefix each
-output row with its logical row number), `--no-header` (treat row 1 as data, when the
+output row with its logical row number), `--count` (print how many rows the address
+selected instead of the cells), `--no-header` (treat row 1 as data, when the
 real header is buried under a title block).
 
 ## Worked recipes
@@ -119,7 +120,12 @@ xled '/active/i [status] = "approved"' app-portfolio.csv
 
 # capture a single value into a shell variable (no header, no quoting)
 owner=$(xled --raw '[owner] 3' app-portfolio.csv)
+xled --count '/retire/' app-portfolio.csv        # how many rows match, not which
 ```
+
+Use `--count` rather than piping a read into `wc -l`: a cell holding a newline makes a
+line counter overcount, and `--count` counts logical rows. Nothing matched is `0` at
+exit 0, so branch on the number, not on the status.
 
 Two of these carry the rules that catch people out: arithmetic needs an explicit
 `num()` cast, and a non-ISO date needs its layout spelled out. Both are in *Expressions

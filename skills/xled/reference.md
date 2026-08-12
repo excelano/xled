@@ -21,6 +21,7 @@ xled [FLAGS] FILE                  # REPL (script omitted, stdin is a terminal)
 | `-i`, `--in-place[=SUFFIX]` | edit the file in place; attach a suffix (`-i.bak`) to keep the original. Refuses an inspect-only script (nothing to write) and refuses piped stdin |
 | `--raw` | value-only output: no header row, no CSV quoting, one addressed value per line. Applies to inspect scripts (a bare address or `show`); ignored on a mutation |
 | `--number` | prefix each output row with its logical 1-based row number (stays correct across cells that contain embedded newlines, which line-based tools miscount). Inspect scripts only |
+| `--count` | print how many rows the address selected instead of the cells — `grep -c` for an address. Rows, de-duplicated: a match spanning three columns of one row counts once. Correct where `wc -l` is not, since a cell containing a newline makes a line counter overcount. No match is `0` at exit 0. Refuses to combine with `--raw` or `--number`. Inspect scripts only |
 | `--no-header` | treat row 1 as data, not a header — use when the real header sits under a title block, so row numbers match the file and you can `crop` then `header N` |
 | `-V`, `--version` / `-h`, `--help` | standard |
 

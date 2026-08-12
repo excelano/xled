@@ -64,6 +64,12 @@ struct Cli {
     /// Applies to inspect scripts (a bare address / `show`)
     #[arg(long)]
     number: bool,
+    /// report how many rows the address selected instead of printing the cells — `grep -c`
+    /// for an address. Rows, de-duplicated: a match spanning three columns of one row counts
+    /// once. Use it instead of piping to `wc -l`, which counts a cell containing a newline
+    /// twice. Applies to inspect scripts (a bare address / `show`)
+    #[arg(long, conflicts_with_all = ["raw", "number"])]
+    count: bool,
     /// treat the first row as data, not a header. Use this when the real header is buried
     /// under a title block: row numbers then match the file, so you can `crop` to the table
     /// and promote the right row with `header` (otherwise row 1 is silently taken as the
@@ -119,6 +125,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
     let opts = exec::RenderOpts {
         raw: cli.raw,
         number: cli.number,
+        count: cli.count,
     };
 
     // -f/--file reads the script from a file; the lone positional (if any) is then the input
@@ -307,10 +314,10 @@ fn render(mut buf: Buffer, script: &str, opts: exec::RenderOpts) -> xled::Result
         eprintln!("{n}");
     }
     if out.output.is_empty() {
-        if opts.raw || opts.number {
+        if opts.raw || opts.number || opts.count {
             eprintln!(
-                "note: --raw/--number format inspect output (a bare address or `show`); this \
-                 script writes the whole table, so they had no effect"
+                "note: --raw/--number/--count report on inspect output (a bare address or \
+                 `show`); this script writes the whole table, so they had no effect"
             );
         }
         let summary = EditSummary {

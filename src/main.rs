@@ -15,8 +15,22 @@ use std::io::{self, IsTerminal, Read, Write};
 use std::process::exit;
 use xled::{exec, io as xio, model::Buffer, parser, session::Session};
 
+/// The exit-code contract, stated so a caller can branch on it without experimenting.
+/// An address that matches nothing is a 0: the command was right and the data had no such
+/// row, which is the same reading sed gives `/nomatch/s///`.
+const EXIT_CODES: &str = "\
+Exit codes:
+  0  success, including a script that matched nothing or skipped a cast
+  1  bad input — unreadable file, a parse error in the data, a refused request
+  2  bad invocation — unknown flag, missing argument, contradictory options";
+
 #[derive(ClapParser)]
-#[command(name = "xled", version, about = "sed and awk for tabular data")]
+#[command(
+    name = "xled",
+    version,
+    about = "sed and awk for tabular data",
+    after_help = EXIT_CODES
+)]
 struct Cli {
     /// command script — omit (give only a file, with a terminal stdin) to open the REPL
     script: Option<String>,
@@ -117,8 +131,10 @@ fn real_main(cli: Cli) -> xled::Result<()> {
         let script = read_script_file(path)?;
         return match cli.script {
             Some(file) => {
-                let buf = xio::read_file(&file, delim, has_header)?;
-                emit(render(buf, &script, opts)?, in_place, Some(&file))
+                reject_in_place_on_stdin(&file, in_place);
+                let buf = read_input(&file, delim, has_header)?;
+                let name = (file != "-").then_some(file.as_str());
+                emit(render(buf, &script, opts)?, in_place, name)
             }
             None => {
                 if stdin_tty {
@@ -137,12 +153,18 @@ fn real_main(cli: Cli) -> xled::Result<()> {
     match (cli.script, cli.file) {
         // explicit script + file → one-shot on the file
         (Some(script), Some(file)) => {
-            let buf = xio::read_file(&file, delim, has_header)?;
-            emit(render(buf, &script, opts)?, in_place, Some(&file))
+            reject_in_place_on_stdin(&file, in_place);
+            let buf = read_input(&file, delim, has_header)?;
+            let name = (file != "-").then_some(file.as_str());
+            emit(render(buf, &script, opts)?, in_place, name)
         }
         // single positional: a file to open (terminal) or a script over piped stdin
         (Some(arg), None) => {
             if stdin_tty {
+                if arg == "-" {
+                    eprintln!("xled: - means stdin, but stdin is a terminal — pipe data in, or name a file");
+                    exit(2);
+                }
                 if in_place.is_some() {
                     eprintln!("xled: -i edits a one-shot result in place — it has no effect on the REPL (use `write`)");
                     exit(2);
@@ -161,6 +183,28 @@ fn real_main(cli: Cli) -> xled::Result<()> {
             );
             exit(2);
         }
+    }
+}
+
+/// Read the input table from a path, or from stdin when the path is `-`.
+///
+/// `-` is the Unix spelling of "this argument is stdin". Omitting the file already reads a
+/// pipe, but a caller that writes `-` is being explicit rather than wrong, and treating it as
+/// a filename fails with `-: No such file or directory`, which reads as a broken command
+/// rather than an unsupported spelling.
+fn read_input(path: &str, delim: Option<u8>, has_header: bool) -> xled::Result<Buffer> {
+    if path == "-" {
+        read_stdin(delim, has_header)
+    } else {
+        xio::read_file(path, delim, has_header)
+    }
+}
+
+/// `-` names stdin, so there is no file to rewrite: `-i` has nothing to act on.
+fn reject_in_place_on_stdin(file: &str, in_place: Option<&str>) {
+    if file == "-" && in_place.is_some() {
+        eprintln!("xled: -i rewrites a file in place, and - is stdin — write the result to a file instead");
+        exit(2);
     }
 }
 

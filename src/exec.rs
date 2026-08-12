@@ -444,6 +444,14 @@ fn assign_target(
         other => {
             let set = resolver::resolve(buf, other)?;
             let cols: BTreeSet<usize> = set.iter().map(|&(_, c)| c).collect();
+            // Nothing selected is a no-op, not an arity problem: the address is well-formed
+            // and the data simply has no row matching it, which is sed's reading of
+            // `/nomatch/s///`. Reporting it as "spans 0 columns" named the wrong cause and
+            // sent the caller off to split a command that was already correct. The row list
+            // is empty, so the column index below is never read.
+            if cols.is_empty() {
+                return Ok((0, Vec::new(), None));
+            }
             if cols.len() != 1 {
                 return Err(XledError::Correction(format!(
                     "this address spans {} columns; assignment writes exactly one — assign to one column, or run two commands.",

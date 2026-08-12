@@ -208,3 +208,51 @@ fn naming_a_new_column_with_a_header_is_idempotent() {
     assert_eq!(once.ncols(), twice.ncols());
     assert_eq!(twice.col_name(once.ncols() - 1), Some("tag"));
 }
+
+// --- regression: a bare word never passes for an address -----------------
+// Every lowercase word is legal column letters, because xaddr upcases a letter run. That
+// once made `xled 'sort'` read column SORT, find nothing, print an empty result and exit 0 —
+// a silent success where the catalog promises a redirect. Two rules close it: a catalogued
+// verb is refused by name, and a lone column past the table's width is an error.
+
+#[test]
+fn a_catalogued_verb_is_refused_by_name_not_read_as_a_column() {
+    for (verb, names) in [
+        ("sort", "never reorders rows"),
+        ("join", "never matches"),
+        ("and", "not a query"),
+        ("aggregate", "never a value across rows"),
+        ("split", "never widens the table"),
+        ("unpivot", "changes the table's shape"),
+        ("append", "not available yet"),
+    ] {
+        let err = parser::parse_program(verb)
+            .err()
+            .unwrap_or_else(|| panic!("{verb} parsed as an address instead of being refused"));
+        let msg = err.to_string();
+        assert!(
+            msg.contains(names),
+            "{verb} refused, but not with its catalogued message: {msg}"
+        );
+    }
+}
+
+#[test]
+fn a_lone_column_past_the_width_is_an_error_not_an_empty_selection() {
+    // products.csv is four columns wide; PIVOT is not one of them.
+    let mut buf = io::read_str(PRODUCTS, b',', true).unwrap();
+    let p = parser::parse_program("pivot").unwrap();
+    let err = exec::run(&mut buf, &p).unwrap_err().to_string();
+    assert!(
+        err.contains("past this table's"),
+        "unexpected message: {err}"
+    );
+    assert!(err.contains("[PIVOT]"), "no correction offered: {err}");
+}
+
+#[test]
+fn a_span_past_the_width_still_clamps() {
+    // The column rule is for a lone address. `A:ZZ` still means "out to the last column",
+    // the same reading `2:9999` gets for rows.
+    assert_eq!(show(PRODUCTS, "A:ZZ"), show(PRODUCTS, "A:"));
+}

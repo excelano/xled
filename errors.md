@@ -167,6 +167,14 @@ or whole columns ([status] del).
 one column, or run two commands. (2:4 = … names rows with no column — same fix.)
 ```
 
+**A bare word that is not a command.** Every lowercase word is legal column letters, because a letter run upcases into a column index. So a word xled does not know is a well-formed address for a column the table does not have, and the correction has to name both readings.
+```
+column PIVOT is past this table's 3 columns (A-C). A bare word is read as column
+letters, so if PIVOT was meant as a command there is no such command — see --help;
+if it is a column name, write [PIVOT].
+```
+This is what keeps a mistyped or out-of-scope verb from passing for an address and returning an empty result on a success code. A word the catalog above names is refused by that entry instead, so `sort` gets the sort message rather than this one. Note the asymmetry with rows, which is deliberate: a *row* past the end still selects nothing without complaint, because a file having fewer rows than the address asked for is a short file, while a table's column count is its schema.
+
 **`=` where `==` was meant** (composition resolved item 6).
 ```
 [price] = [cost] assigns cost into price — it is not a filter. For "rows where price

@@ -7,9 +7,12 @@ function with its signature, and the input-encoding rules.
 ## Invocation and flags
 
 ```
-xled [FLAGS] '<script>' [FILE]     # one-shot (FILE omitted → read stdin)
+xled [FLAGS] '<script>' [FILE]     # one-shot (FILE omitted or `-` → read stdin)
 xled [FLAGS] FILE                  # REPL (script omitted, stdin is a terminal)
 ```
+
+`FILE` may be `-`, which names stdin explicitly and is equivalent to omitting it.
+`-i` refuses it, since there is no file to rewrite.
 
 | Flag | Meaning |
 |---|---|
@@ -20,6 +23,12 @@ xled [FLAGS] FILE                  # REPL (script omitted, stdin is a terminal)
 | `--number` | prefix each output row with its logical 1-based row number (stays correct across cells that contain embedded newlines, which line-based tools miscount). Inspect scripts only |
 | `--no-header` | treat row 1 as data, not a header — use when the real header sits under a title block, so row numbers match the file and you can `crop` then `header N` |
 | `-V`, `--version` / `-h`, `--help` | standard |
+
+**Exit codes.** `0` success, including a script that matched nothing or skipped a
+cast — a well-formed command over data that had no such row is an answer, not a
+failure, the same reading sed gives `/nomatch/s///`. `1` bad input: an unreadable
+file, a parse error in the data, or a refused request. `2` bad invocation: an
+unknown flag, a missing argument, or contradictory options.
 
 A script is one or more statements, one per line. A statement is `address command`;
 either part may stand alone. An address alone shows those cells; a command alone acts

@@ -9,10 +9,86 @@
 use crate::ast::*;
 use crate::errors::{parse, Result, XledError};
 
-/// Reserved command words (all lowercase; columns are uppercase, so no collision).
+/// Reserved command words. Lowercase, but that alone does not separate them from an address:
+/// `xaddr` upcases letter runs, so every lowercase word is also legal column letters. What
+/// keeps them apart is that a command is matched here by name, and anything else has to
+/// resolve against the table (see `resolver::check_columns_in_range`).
 const RESERVED: [&str; 8] = [
     "del", "show", "crop", "header", "rename", "fill", "drop", "describe",
 ];
+
+/// Words that name a capability xled does not have, matched at command position so they
+/// reach their catalogued refusal instead of being read as an address. Without this they
+/// parse as column letters, resolve past the table, and get the generic out-of-range error —
+/// true, but silent about where the capability actually lives.
+///
+/// Only words the `errors.md` catalog names get an entry; anything else falls through to
+/// the out-of-range message. Keep this list and the catalog in step.
+const REFUSED: [&str; 12] = [
+    "sort",
+    "and",
+    "or",
+    "not",
+    "aggregate",
+    "group",
+    "sum",
+    "count",
+    "join",
+    "split",
+    "unpivot",
+    "append",
+];
+
+/// The catalogued refusal for a word in [`REFUSED`], verbatim from `errors.md`.
+fn refusal(word: &str) -> Option<XledError> {
+    let e = match word {
+        "sort" => XledError::NotInScope(
+            "sort is not in xled's scope: xled edits cells in place and never reorders rows. \
+             Sort upstream and pipe in — sort -t, -k3 file.csv | xled '…' — or let the \
+             query engine do it: duckdb -c \"FROM file.csv ORDER BY price\"."
+                .into(),
+        ),
+        "and" | "or" | "not" => XledError::NotInScope(
+            "combining conditions with and/or is not in xled's scope: an address selects rows \
+             to edit, it is not a query. For one more condition, run a second xled command on \
+             the result; for a real predicate, query first — xql 'SELECT * WHERE qty < reorder \
+             AND status = \"active\"' file.csv | xled '…'."
+                .into(),
+        ),
+        "aggregate" | "group" | "sum" | "count" => XledError::NotInScope(
+            "aggregation (sum / count / group) is not in xled's scope: expr produces one value \
+             per row, never a value across rows. Aggregate in the query engine — \
+             duckdb -c \"FROM file.csv SELECT dept, sum(cost) GROUP BY dept\"."
+                .into(),
+        ),
+        "join" => XledError::NotInScope(
+            "joining tables is not in xled's scope: xled holds one buffer and never matches \
+             rows across files. Join upstream, then scrub the result here — \
+             duckdb -c \"FROM a.csv JOIN b.csv USING (id)\" | xled '…'."
+                .into(),
+        ),
+        "split" => XledError::NotSupported(
+            "splitting one cell into several columns is not supported: assignment writes one \
+             column and never widens the table. For the common two-part case, rearrange in \
+             place with s/// — [name] s/(.*), (.*)/\\2 \\1/ — or split upstream: \
+             duckdb -c \"FROM file.csv SELECT split_part(name, ', ', 1) AS last, …\"."
+                .into(),
+        ),
+        "unpivot" => XledError::NotSupported(
+            "unpivoting (wide → long) is not supported: it changes the table's shape, which \
+             xled never does. Reshape in the query engine — duckdb -c \"UNPIVOT file.csv …\"."
+                .into(),
+        ),
+        "append" => XledError::NotAvailableYet(
+            "appending a row is not available yet: xled edits existing rows; row generation is \
+             still being designed against real cases. For now append upstream — \
+             printf 'a,b,c\\n' >> file.csv — then reopen."
+                .into(),
+        ),
+        _ => return None,
+    };
+    Some(e)
+}
 
 /// Parse a whole program: one statement per non-blank line (sequential semantics, rule 9).
 pub fn parse_program(input: &str) -> Result<Vec<Statement>> {
@@ -321,15 +397,12 @@ impl Parser {
                 Ok(Command::DropBlanks(axis))
             }
             "" => Err(parse("expected a command")),
-            // The combinator wall: a second condition is a query, not an address.
-            "and" | "or" => Err(XledError::NotInScope(
-                "combining conditions with and/or is not in xled's scope: an address selects \
-                 rows to edit, it is not a query. For one more condition, run a second xled \
-                 command on the result; for a real predicate, query first — \
-                 xql 'SELECT * WHERE …' file.csv | xled '…'."
-                    .into(),
-            )),
-            other => Err(parse(format!("unknown command '{other}'"))),
+            // The capability boundary: sort/join/aggregate/and-or and the rest name a job that
+            // lives in a sibling tool. The catalogued message says which one.
+            other => match refusal(other) {
+                Some(e) => Err(e),
+                None => Err(parse(format!("unknown command '{other}'"))),
+            },
         }
     }
 
@@ -727,7 +800,7 @@ impl Parser {
             w.push(self.chars[i]);
             i += 1;
         }
-        if !RESERVED.contains(&w.as_str()) {
+        if !RESERVED.contains(&w.as_str()) && !REFUSED.contains(&w.as_str()) {
             return false;
         }
         // boundary: a reserved word is followed by a space (then its args) or end of line.

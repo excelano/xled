@@ -10,8 +10,12 @@ use crate::ast::{BinOp, CmpOp, Expr};
 use crate::date;
 use crate::errors::XledError;
 use crate::model::Buffer;
+use crate::subst::{self, Replacement};
 use chrono::{Datelike, NaiveDate};
+use regex::Regex;
+use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 #[derive(Debug, Clone)]
@@ -141,6 +145,34 @@ fn eval_cmp(op: CmpOp, a: &Value, b: &Value) -> bool {
         Some(Ordering::Greater) => matches!(op, CmpOp::Gt | CmpOp::Ge | CmpOp::Ne),
         None => matches!(op, CmpOp::Ne), // NaN: only != holds
     }
+}
+
+thread_local! {
+    /// Compiled patterns, keyed by their source text. An expression runs once per row, and a
+    /// pattern is nearly always a literal, so compiling per row would pay the whole cost of
+    /// the regex engine on every line of the file. Keyed by string rather than cached on the
+    /// AST node because the pattern is an ordinary argument — it may be a column, and then it
+    /// genuinely varies per row, which a per-node cache would get wrong.
+    static REGEX_CACHE: RefCell<HashMap<String, Regex>> = RefCell::new(HashMap::new());
+}
+
+/// Compile `pattern`, reusing an earlier compilation of the same text.
+///
+/// A bad pattern halts rather than tallying a skip. A cast failure is per-cell and says
+/// something about that row's data; an unparsable regex is wrong on every row, so stopping and
+/// showing the engine's own message is the useful answer (rule 6's line).
+fn compiled(pattern: &str) -> Result<Regex, EvalErr> {
+    REGEX_CACHE.with(|c| {
+        let mut c = c.borrow_mut();
+        if let Some(re) = c.get(pattern) {
+            return Ok(re.clone());
+        }
+        let re = Regex::new(pattern).map_err(|e| {
+            EvalErr::Hard(XledError::Correction(format!("bad regex {pattern:?}: {e}")))
+        })?;
+        c.insert(pattern.to_string(), re.clone());
+        Ok(re)
+    })
 }
 
 fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Value, EvalErr> {
@@ -435,6 +467,33 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
         // A row-index function is deliberately absent: a computed cell sees only values, and
         // reading its own position would break that value-in/value-out model. Point to the
         // flag that does emit logical row numbers instead of leaving a bare "unknown function".
+        // Regex as a *value*, not a command. `s///` rewrites the cells it addresses, so it can
+        // only ever write back into the column it read; these read one column and can be
+        // assigned into another, which is the whole gap they close (#18).
+        "regexreplace" => {
+            want(3)?;
+            let text = eval(buf, row, &args[0])?.as_string();
+            let pattern = eval(buf, row, &args[1])?.as_string();
+            let rep = eval(buf, row, &args[2])?.as_string();
+            let re = compiled(&pattern)?;
+            // `global = true`: this is the spreadsheet family's REGEXREPLACE, which replaces
+            // every match. `s///` replaces the first without `g` because it is sed's command
+            // and keeps sed's contract; the two conventions each stay faithful to their own
+            // lineage rather than one bending to the other. Stated in expr-grammar.md.
+            Ok(Value::Str(subst::substitute(
+                &re,
+                &Replacement::parse(&rep),
+                &text,
+                true,
+                None,
+            )))
+        }
+        "regexmatch" => {
+            want(2)?;
+            let text = eval(buf, row, &args[0])?.as_string();
+            let pattern = eval(buf, row, &args[1])?.as_string();
+            Ok(Value::Bool(compiled(&pattern)?.is_match(&text)))
+        }
         "row" => Err(EvalErr::Hard(XledError::Correction(
             "there is no row() — a computed column can't read its own row index. To emit \
              logical row numbers, use the --number flag: `xled --number '[col]' file`."

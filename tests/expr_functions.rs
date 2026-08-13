@@ -149,3 +149,89 @@ fn min_rejects_zero_args() {
         "arity error is explicit: {e}"
     );
 }
+
+// --- regex as a value ----------------------------------------------------
+//
+// `s///` can only write back into the column it reads, so a pattern that derives one column
+// from another had no expression to say it in. These two close that (#18).
+
+// A stacked org prefix, a single one, and a row with none — the shape that motivated this.
+const REQ: &str =
+    "src,out\nT&D/CE/SO&AT - DeAnna Ervin/Chris Bell,\nAPP - Jane Doe,\nNoPrefix Person,\n";
+
+#[test]
+fn regexreplace_writes_into_a_different_column() {
+    let b = run(
+        REQ,
+        r#"[out] = regexreplace([src], "^(?:(?:APP|CE|SO&AT|T&D)\s*[-/\\ ]\s*)+", "")"#,
+    );
+    // A `+` on the alternation collapses the stacked prefixes in one pass — no loop needed.
+    assert_eq!(b.cell(0, 1), "DeAnna Ervin/Chris Bell");
+    assert_eq!(b.cell(1, 1), "Jane Doe");
+    // No match leaves the value whole rather than emptying it.
+    assert_eq!(b.cell(2, 1), "NoPrefix Person");
+    // The source column is untouched — this reads, it does not rewrite.
+    assert_eq!(b.cell(0, 0), "T&D/CE/SO&AT - DeAnna Ervin/Chris Bell");
+}
+
+/// The replacement is xled's own sed dialect, not the regex crate's `$1`, because it is the
+/// same `Replacement` parser `s///` uses. One dialect, so the two cannot drift.
+#[test]
+fn regexreplace_uses_the_sed_replacement_dialect() {
+    let csv = "a,b\n\"Doe, Jane\",\n";
+    let b = run(
+        csv,
+        r#"[b] = regexreplace([a], "^(\w+), (\w+)$", "\U\1\E, \u\2")"#,
+    );
+    assert_eq!(b.cell(0, 1), "DOE, Jane");
+    let b = run(csv, r#"[b] = regexreplace([a], "\w+", "<&>")"#);
+    assert_eq!(b.cell(0, 1), "<Doe>, <Jane>");
+}
+
+/// Every match, unlike `s///` without `g`. This is the spreadsheet family's REGEXREPLACE and
+/// keeps their contract, where `s///` keeps sed's.
+#[test]
+fn regexreplace_replaces_every_match() {
+    let b = run("a,b\na-b-c,\n", r#"[b] = regexreplace([a], "-", "+")"#);
+    assert_eq!(b.cell(0, 1), "a+b+c");
+}
+
+#[test]
+fn regexmatch_branches_inside_if() {
+    let b = run(
+        REQ,
+        r#"[out] = if(regexmatch([src], "/"), "multi", "single")"#,
+    );
+    assert_eq!(b.cell(0, 1), "multi");
+    assert_eq!(b.cell(1, 1), "single");
+    assert_eq!(b.cell(2, 1), "single");
+}
+
+/// The pattern is an ordinary argument, so it may be a column and vary row to row. The
+/// compile cache is keyed on the pattern text for exactly this reason.
+#[test]
+fn the_pattern_may_come_from_a_column() {
+    let b = run(
+        "txt,pat,out\nfoobar,o+,\nbazzz,z+,\n",
+        r#"[out] = regexreplace([txt], [pat], "-")"#,
+    );
+    assert_eq!(b.cell(0, 2), "f-bar");
+    assert_eq!(b.cell(1, 2), "ba-");
+}
+
+/// A bad pattern is wrong on every row, so it halts rather than tallying one skip per row —
+/// the same line rule 6 draws for a cast failure, on the other side of it.
+#[test]
+fn a_bad_pattern_halts_and_shows_the_engine_message() {
+    let e = err("a,b\nx,\n", r#"[b] = regexreplace([a], "(", "y")"#);
+    assert!(e.contains("bad regex"), "got: {e}");
+    assert!(e.contains("regex parse error"), "got: {e}");
+}
+
+#[test]
+fn regex_functions_state_their_arity() {
+    let e = err("a,b\nx,\n", r#"[b] = regexreplace([a], "x")"#);
+    assert!(e.contains("takes 3 argument(s), got 2"), "got: {e}");
+    let e = err("a,b\nx,\n", r#"[b] = regexmatch([a])"#);
+    assert!(e.contains("takes 2 argument(s), got 1"), "got: {e}");
+}

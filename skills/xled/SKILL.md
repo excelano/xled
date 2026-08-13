@@ -197,9 +197,23 @@ and long identifiers intact — so respect it:
 
 Function library (full signatures in `reference.md`): text — `len left right mid
 substr trim ltrim rtrim lpad rpad`; case — `upper lower proper` (same Unicode fold as
-`s///`'s `\U`/`\L`); numbers — `round abs floor ceil mod min max`; dates — `date text
-year month day weekday today`; casts and logic — `num bool default coalesce if`.
-Concatenate with `&`.
+`s///`'s `\U`/`\L`); regex — `regexreplace regexmatch`; numbers — `round abs floor ceil
+mod min max`; dates — `date text year month day weekday today`; casts and logic — `num
+bool default coalesce if`. Concatenate with `&`.
+
+**Deriving one column from another by pattern is `regexreplace`, not `s///`.** `s///`
+rewrites the cells it addresses, so it can only write back into the column it read. To
+read `[a]` and write `[b]`, use the expression:
+
+```sh
+xled '[responsible] = regexreplace([requestor], "^(?:(?:APP|CE|T&D)\s*[-/\\ ]\s*)+", "")' f.csv
+```
+
+A `+` on the alternation collapses stacked prefixes in one pass, so a repeated prefix needs
+no loop. `regexmatch(x, pat)` returns a bool for branching inside `if()`. The replacement is
+xled's own dialect (`\1`, `&`, `\U`), the same one `s///` expands, and `regexreplace`
+replaces every match where `s///` without `g` replaces the first. Case-insensitivity is
+`(?i)` at the front of the pattern rather than a flag argument.
 
 ## The interactive REPL
 

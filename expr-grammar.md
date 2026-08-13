@@ -72,6 +72,23 @@ The set is **derived, not invented**: the original library came out of rendering
 | `trim(x)` / `ltrim(x)` / `rtrim(x)` | strip whitespace both sides / left / right, Unicode so Excel's non-breaking space goes too |
 | `lpad(x, w [, fill])` / `rpad(x, w [, fill])` | pad to width `w`; **never truncates**, because dropping characters is the same betrayal as coercion |
 
+**Regex**
+
+| Function | Does |
+|---|---|
+| `regexreplace(x, pat, rep)` | every match of `pat` in `x` replaced by `rep` |
+| `regexmatch(x, pat)` | → bool, whether `pat` matches anywhere in `x` |
+
+These are the reason expr can do what `s///` cannot. `s///` rewrites the cells it addresses, so it can only ever write back into the column it read; `regexreplace` reads one column and the assignment writes another, which is what a derived column needs.
+
+`rep` is **xled's own replacement dialect**, not the regex crate's `$1` — `\1`–`\9`, `&` for the whole match, and the `\U \L \u \l \E` case-folds, expanded by the same parser `s///` uses so the two cannot drift. Inside a string literal these need no extra escaping: expr's strings only treat `\"` specially and pass every other backslash through, so `"\U\1"` arrives as written.
+
+`regexreplace` replaces **every** match, where `s///` without `g` replaces the first. That difference is deliberate rather than an oversight: `regexreplace` is the spreadsheet family's function and keeps their contract, `s///` is sed's command and keeps sed's. Case-insensitivity has no flag argument because the regex dialect already carries one — write `(?i)` at the front of the pattern, the same inline form `s///i` expands to internally.
+
+A pattern that will not compile **halts** rather than tallying a skipped cell. A failed cast says something about one row's data; an unparsable regex is wrong on every row, so the run stops and shows the engine's own message.
+
+A pattern is an ordinary argument, so it may be a column and vary from row to row. Compiled patterns are cached by their text, which makes the common literal case compile once for the whole file without making the varying case wrong.
+
 **Numbers**
 
 | Function | Does |

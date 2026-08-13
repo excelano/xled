@@ -132,6 +132,20 @@ Casts and logic:
 | `coalesce(a, b, …)` | first non-empty argument |
 | `if(cond, then, else)` | branch on a bool `cond` |
 
+Regex (the half `s///` cannot reach — it rewrites in place, these read one column so the
+assignment can write another):
+
+| Call | Result |
+|---|---|
+| `regexreplace(x, pat, rep)` | every match of `pat` replaced by `rep` |
+| `regexmatch(x, pat)` | bool — does `pat` match anywhere in `x` |
+
+`rep` is xled's replacement dialect (`\1`–`\9`, `&`, `\U \L \u \l \E`), expanded by the
+same parser `s///` uses; expr string literals only escape `\"`, so it needs no doubling.
+`regexreplace` replaces every match (the spreadsheet contract) where `s///` without `g`
+replaces the first (sed's). Case-insensitivity is `(?i)` inside the pattern. A pattern that
+will not compile halts, because unlike a cast failure it is wrong on every row.
+
 Dates (a real type; always serialized ISO 8601):
 
 | Signature | Returns |

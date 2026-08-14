@@ -62,10 +62,11 @@ primary     ::= "(" reference ")" | rowset | range
 range       ::= positional ( ":" positional? )? | ":" positional
 positional  ::= cell | column | rownum | name | "$"
 
-rowset      ::= regexSel | colRegexSel | comparison
+rowset      ::= regexSel | colRegexSel | comparison | callSel
 regexSel    ::= "/" regexBody "/" "i"?
 colRegexSel ::= name ( "~" | "!~" ) "/" regexBody "/" "i"?
 comparison  ::= concat cmpOp concat              (* exactly one cmpOp — operands are sub-comparison exprs *)
+callSel     ::= call                             (* a *call* only — not any bool expr; see below *)
 ```
 
 `comparison`'s operands are `concat` (defined under Expr), which sits *below* comparison
@@ -73,9 +74,21 @@ precedence and therefore cannot itself contain a `cmpOp`. That single fact enfor
 per address atom, no `and`/`or` chaining" structurally — the combinator wall
 (composition-grammar resolved item 2) needs no special rule, the grammar just can't express it.
 
+`callSel` is a function call standing alone as the row-set: `regexmatch([org], "^APP$") del`. It
+exists because a call is the one expr shape that answers true or false without a `cmpOp` in it, and
+requiring `== true` to address on one would be ceremony over a value that is already a bool.
+
+It is deliberately `call` and not `concat`. Widening the atom to any bool-valued expr would put a
+bool on both sides of a would-be `and` and turn the combinator wall from a fact of the grammar back
+into a rule a parser has to enforce; a call form leaves it standing, since `f(…) and g(…)` still has
+no production. A call that returns something other than a bool is a *semantic* error — the same
+shape of correction as a call to a function the library does not have — because whether a name
+returns a bool is not knowable from the grammar.
+
 Covered forms (all from the Part A/C battery): `2` `2:4` `2:` `:4` `$` `C` `AF` `B:D` `B2` `B2:C3`
 `[price]` `[a]:[d]` `[day_05]:AF` `/re/` `/re/i` `[col]~/re/` `[col]!~/re/` `[qty]<[reorder]`
-`num([qty])<num([reorder])` `!1` `!/active/i`, and every intersection/union/paren combination of them.
+`num([qty])<num([reorder])` `regexmatch([org],"^APP$")` `!1` `!/active/i`, and every
+intersection/union/paren combination of them.
 
 ### Command
 
@@ -131,7 +144,9 @@ production reaches it: in address position a `cmpOp` makes a row-set; in RHS pos
 bool value. Same operators, same operands — defined once here.
 
 No boolean `and`/`or`/`not`: there is no production for them. Multi-condition logic nests through
-`if()`/`coalesce()`; a real predicate is xql's job (expr-grammar, locked).
+`if()`/`coalesce()`; a real predicate is xql's job (expr-grammar, locked). A variadic *function*
+whose arguments are values rather than predicates — `in(x, a, b)` — is not a combinator by another
+name and does not reopen this; the argument is in expr-grammar, beside the refusal.
 
 ### Lexical tokens
 
@@ -181,6 +196,12 @@ written to *agree* with them, but a parser implements them directly.
    lookahead: parse one `concat`, then peek — a `cmpOp` next ⇒ it's a `comparison` (row-set);
    otherwise it was a plain reference atom. (Bare letters like `C` never start an expr — expr
    columns are bracketed — so `C` is unambiguously a column.)
+
+   `callSel` needs no lookahead at all: a lowercase word followed immediately by `(` is a call and
+   nothing else, because a column is bracketed or uppercase and a command word is followed by a
+   space. The two words that shape are *not* — a reserved command (`del(`, a malformed command) and
+   a catalogued capability (`sum(`, which gets its refusal) — are decided by name, before the
+   grammar is consulted.
 
 3. **`$` — last-row vs end-anchor (by position).** As a `positional`, `$` is the last data row. The
    *same character* inside `regexBody` (`/active$/`) is the regex end-anchor — but there it lives
@@ -248,6 +269,7 @@ future change doesn't quietly undo one.
   a single EBNF. The three split spec files remain the prose rationale; this is the formal surface.
 - **The combinator wall is structural, not a rule.** `comparison` operands are `concat` (below
   comparison precedence), so `and`/`or` chaining is *inexpressible* rather than merely rejected.
+  `callSel` is held to a `call` rather than a `concat` to keep it that way.
 - **The three things EBNF cannot hold are named and bounded** — ref/command munch, column/comparison
   lookahead, and `$` by position. A parser implements exactly these three, nothing more.
 - **Scope contracts and the error catalog are one boundary.** Listed once as a table here, voiced once

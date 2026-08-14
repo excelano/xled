@@ -23,6 +23,7 @@ Reference atoms:
 | `/re/` | rows where any cell matches |
 | `[col]~/re/` | rows where that column matches |
 | `[a] < [b]` | rows where the comparison holds (one comparison, no combinators — `⚐boundary`). Operators: `==` `!=` `<` `>` `<=` `>=`. Equality is `==`, never bare `=` — bare `=` is the assignment sigil, so overloading it would make `[price] = [cost]` ambiguous between "rows where equal" and "set price to cost." awk-faithful. Operands are **exprs** (`expr-grammar.md`), so `num([amount]) < 0` is legal; comparison is **string-wise unless `num()`-cast** (`[qty]<[reorder]` is lexicographic — `num([qty])<num([reorder])` for numeric order). |
+| `f(…)` | rows where a **bool-valued call** is true — `regexmatch([org], "^APP$")`, `in([org], "APP", "CAM")`. A call is the one expr shape already answering true or false, so demanding `== true` would be ceremony; the atom is held to a *call* and not to any bool expr, which is what keeps `f(…) and g(…)` inexpressible rather than merely refused. A call returning something else (`upper([org])`) is a correction, not a silent empty selection. |
 | `!<rowset>` | negation of a row-set |
 | *(omitted axis)* | all rows, or all columns |
 
@@ -82,7 +83,7 @@ C2's only advantage is preserving ed's single-letter `d`/`p`, bought with visual
 ## Settled — addressing and precedence
 
 1. **Precedence / grouping** — adopt Excel's verbatim: `:` (range) > ` ` (intersection) > `,` (union), with **parentheses for grouping**, exactly as Excel allows. So `[price],[cost] 2:4` binds as `[price] , ([cost] 2:4)`; to mean "(both columns) ∩ rows" write `([price],[cost]) 2:4`. Faithful and escape-hatchable.
-2. **Comparison token** — a single comparison (`[qty] < [reorder]`) is a row-set atom; combinators (`and`/`or`/`not`) are a hard error pointing at xql. Parentheses are optional but recommended when intersecting, for the eye: `([qty]<[reorder]) [status] = "low"`.
+2. **Comparison token** — a single comparison (`[qty] < [reorder]`) is a row-set atom; combinators (`and`/`or`/`not`) are a hard error pointing at xql. Parentheses are optional but recommended when intersecting, for the eye: `([qty]<[reorder]) [status] = "low"`. A bool-valued **call** is the same kind of atom without the operator — `regexmatch([org], "^APP$") del` — added once `regexmatch` and `in` made bool-returning functions ordinary; a capability word in call position (`sum([cost])`) is answered by its catalog entry rather than read as an address, which the bare form already was.
 3. **Named ranges** — `[a]:[d]` is the positional column span from one endpoint to the other, inclusive, in physical order, auto-normalized (`[d]:[a]` == `[a]:[d]`). Endpoints may mix kinds: `[day_05]:[day_10]`, `[day_05]:AF`.
 4. **`d`/`p` dropped** — accepted. `del` and `show` replace ed's single letters; a 2-D delete must say row-or-column anyway, and the address does.
 5. **Column-scoped regex** — `[col]~/re/` (and `[col]!~/re/`) select rows where that column matches / doesn't, awk-faithful. Bare `/re/` is the any-cell match. Both are row-set atoms.

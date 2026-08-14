@@ -165,8 +165,12 @@ Positional addresses are bare; names are bracketed. That one rule resolves every
 | `/active/` | every cell matching the regex |
 | `[status]~/active/` | cells in `[status]` matching the regex |
 | `/active/i [status]` | combine row-select and column to a scoped set |
+| `num([qty]) < num([reorder])` | rows where a comparison holds |
+| `regexmatch([sku], "^TL-")` | rows where a bool-valued function is true |
 
 Brackets disambiguate the hard cases for free: the column *named* `B` is `[B]` while the column *at* letter B is `B`, and the header `2024` is `[2024]` while row 2024 is `2024`. Names match exactly — `[userId]` is not `[userid]` — because a header is data and silent case-folding is the same class of surprise as dropping a leading zero. Add the `i` flag to a regex for a case-insensitive match when you want one.
+
+The last two rows are the same kind of atom: a test evaluated per row, selecting the ones it answers true for. A function that already returns a bool needs no `== true` after it. There is deliberately no `and` or `or` to chain two of them — one condition per address, and a real multi-predicate filter is a query, so run a second xled command on the result or reach for xql.
 
 ## Commands
 

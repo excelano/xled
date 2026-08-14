@@ -173,7 +173,14 @@ column PIVOT is past this table's 3 columns (A-C). A bare word is read as column
 letters, so if PIVOT was meant as a command there is no such command — see --help;
 if it is a column name, write [PIVOT].
 ```
-This is what keeps a mistyped or out-of-scope verb from passing for an address and returning an empty result on a success code. A word the catalog above names is refused by that entry instead, so `sort` gets the sort message rather than this one. Note the asymmetry with rows, which is deliberate: a *row* past the end still selects nothing without complaint, because a file having fewer rows than the address asked for is a short file, while a table's column count is its schema.
+This is what keeps a mistyped or out-of-scope verb from passing for an address and returning an empty result on a success code. A word the catalog above names is refused by that entry instead, so `sort` gets the sort message rather than this one — and that holds for the *called* form as well, `sum([cost])` alongside bare `sum`. The call form needed saying out loud: a `(` denies the word the space boundary a command is recognized by, so before it was routed by name it read as column letters and died as a malformed command, catalog untouched. Note the asymmetry with rows, which is deliberate: a *row* past the end still selects nothing without complaint, because a file having fewer rows than the address asked for is a short file, while a table's column count is its schema.
+
+**A call in address position that does not answer true or false** (composition-grammar, the row-set atom table). A bool-valued call addresses rows; one returning text or a number cannot select anything, and it is the same shape on every row, so it halts rather than returning nothing on a success code. Naming the function matters here — the mistake is nearly always a missing comparison, not a wrong function.
+```
+upper() produces text, and an address selects on true or false; for the rows where it
+holds, compare it — upper(…) == "value" — or address with a test that answers true or
+false, like regexmatch().
+```
 
 **`=` where `==` was meant** (composition resolved item 6).
 ```

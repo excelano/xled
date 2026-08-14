@@ -241,6 +241,16 @@ impl Parser {
                 Ok(Reference::RegexSel { body, ci })
             }
             _ => {
+                // A capability word in *call* position — `sum([cost])` — never reaches command
+                // position to collect its catalogued refusal: the `(` denies it the space
+                // boundary a command needs, so it reads as column letters and dies on the paren
+                // with "expected a command". Route it to the catalog here, so the bare and the
+                // called form answer alike.
+                if let Some(w) = self.leading_call_word() {
+                    if let Some(e) = refusal(&w) {
+                        return Err(e);
+                    }
+                }
                 // column ↔ comparison disambiguation: if a top-level cmpOp leads (before the
                 // assignment `=` or end), this atom is a comparison row-set, not a range.
                 if self.has_leading_comparison() {
@@ -704,6 +714,13 @@ impl Parser {
     /// Scan ahead for a top-level comparison operator before the assignment `=`, a union
     /// `,`, a closing `)`, a command word, or end — the column↔comparison decision.
     fn has_leading_comparison(&self) -> bool {
+        // A call in leading position *is* the predicate — `in([org], "APP", "CAM") del` — so
+        // no cmpOp needs to follow it. Decided before the scan because nothing to the right
+        // can change it. A refused capability word never arrives here: `parse_primary` has
+        // already turned it into its catalogued message.
+        if self.leading_call_word().is_some() {
+            return true;
+        }
         let mut i = self.pos;
         let mut depth = 0i32;
         let n = self.chars.len();
@@ -805,6 +822,33 @@ impl Parser {
         }
         // boundary: a reserved word is followed by a space (then its args) or end of line.
         i >= self.chars.len() || self.chars[i] == ' '
+    }
+
+    /// The lowercase word at the cursor when a `(` follows it immediately — a function call
+    /// in leading position, which is the one shape that makes a reference atom out of an expr
+    /// with no comparison operator in it.
+    ///
+    /// Deliberately narrow. Widening the atom to *any* bool-valued expr would put a bool on
+    /// both sides of a would-be `and`, turning the combinator wall from a structural fact of
+    /// the grammar (`comparison` operands sit below comparison precedence, so chaining is
+    /// inexpressible) back into a rule something has to enforce. A call form leaves it standing.
+    ///
+    /// A reserved command word is excluded: `del(` is a malformed command, not a call.
+    fn leading_call_word(&self) -> Option<String> {
+        let mut i = self.pos;
+        while i < self.chars.len() && self.chars[i] == ' ' {
+            i += 1;
+        }
+        let start = i;
+        let mut w = String::new();
+        while i < self.chars.len() && self.chars[i].is_ascii_lowercase() {
+            w.push(self.chars[i]);
+            i += 1;
+        }
+        if i == start || self.chars.get(i) != Some(&'(') || RESERVED.contains(&w.as_str()) {
+            return None;
+        }
+        Some(w)
     }
 
     /// True if the cursor begins a reference atom.

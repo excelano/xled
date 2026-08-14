@@ -55,10 +55,14 @@ means the same thing in both tools.
 | `/re/` | every cell matching the regex (add `i` for case-insensitive: `/re/i`) |
 | `[col]~/re/` | cells in one column matching the regex |
 | `/re/ [col]` | intersect a regex row-select with a column (space = intersect) |
+| `num([qty]) < num([reorder])` | rows where one comparison holds — operands are exprs |
+| `regexmatch([sku], "^TL-")` | rows where a bool-valued call is true; no `== true` needed |
 
 **Combinators** (precedence low→high): `,` union < ` ` (space) intersect < `:` range
 < `!` negate; parentheses override. There is intentionally **no `and` / `or`** — a
-multi-predicate row filter is out of scope (use SQL). Disambiguation notes: the column
+multi-predicate row filter is out of scope (use SQL). A call in address position must
+return a bool: `upper([org])` there is an error naming the missing comparison, not an
+empty selection. Disambiguation notes: the column
 *named* `B` is `[B]` while the column *at* letter B is `B`; the header `2024` is
 `[2024]` while row 2024 is `2024`.
 

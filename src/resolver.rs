@@ -109,7 +109,7 @@ fn check_columns_in_range(buf: &Buffer, spec: &xaddr::Spec) -> Result<()> {
     Ok(())
 }
 
-/// A comparison as scope: select whole rows where the bool-valued expr is true.
+/// A predicate as scope: select whole rows where the bool-valued expr is true.
 /// A cast failure on a row just leaves it unselected (lenient).
 fn resolve_comparison(buf: &Buffer, e: &Expr) -> Result<CellSet> {
     let ncols = buf.ncols();
@@ -121,12 +121,41 @@ fn resolve_comparison(buf: &Buffer, e: &Expr) -> Result<CellSet> {
                     set.insert((r, c));
                 }
             }
-            Ok(_) => {}
+            Ok(Value::Bool(false)) => {}
+            // A value that is not a bool cannot select anything, and it is the same value
+            // shape on every row, so this is a hole in the command rather than in the data:
+            // halt with the corrected form instead of quietly returning nothing on exit 0.
+            // Only reachable since a leading call became an atom — a `cmpOp` always yields a
+            // bool, so the comparison form cannot arrive here.
+            Ok(v) => return Err(not_a_predicate(e, &v)),
             Err(EvalErr::Cast) => {}
             Err(EvalErr::Hard(err)) => return Err(err),
         }
     }
     Ok(set)
+}
+
+/// The correction for an address that computes a value instead of testing one.
+fn not_a_predicate(e: &Expr, v: &Value) -> XledError {
+    let produced = match v {
+        Value::Str(_) => "text",
+        Value::Num(_) => "a number",
+        Value::Date(_) => "a date",
+        Value::Bool(_) => unreachable!("bools are selected on, not corrected"),
+    };
+    match e {
+        Expr::Call(name, _) => XledError::Correction(format!(
+            "{name}() produces {produced}, and an address selects on true or false; for the \
+             rows where it holds, compare it — {name}(…) == \"value\" — or address with a \
+             test that answers true or false, like regexmatch()."
+        )),
+        // Unreachable while a leading call is the only non-comparison atom, but the shape of
+        // the correction does not depend on the expr being one.
+        _ => XledError::Correction(format!(
+            "this address produces {produced}, and an address selects on true or false; \
+             compare it against a value, or use a test like regexmatch()."
+        )),
+    }
 }
 
 fn resolve_col_regex(buf: &Buffer, col: &str, neg: bool, body: &str, ci: bool) -> Result<CellSet> {

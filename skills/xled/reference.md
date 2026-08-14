@@ -135,6 +135,7 @@ Casts and logic:
 | `default(v, fallback)` | `fallback` when `v` is empty, else `v` |
 | `coalesce(a, b, …)` | first non-empty argument |
 | `if(cond, then, else)` | branch on a bool `cond` |
+| `in(x, a, b, …)` | → bool, `x` equals any member. **Literals, not a pattern** — use this, not an alternation, for set membership: `^(?:APP|CAM)$` matches inside `APPLE`/`SCAM` unanchored and compiles a member like `R+D` as regex when anchored. Case-exact; fold with `upper()`. Comparison follows the value model, so cast for numeric membership: `in(num([qty]), 1, 2)` |
 
 Regex (the half `s///` cannot reach — it rewrites in place, these read one column so the
 assignment can write another):

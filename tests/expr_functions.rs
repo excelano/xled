@@ -235,3 +235,86 @@ fn regex_functions_state_their_arity() {
     let e = err("a,b\nx,\n", r#"[b] = regexmatch([a])"#);
     assert!(e.contains("takes 2 argument(s), got 1"), "got: {e}");
 }
+
+// --- set membership ------------------------------------------------------
+
+/// The two ways an alternation is silently wrong, which are why `in` exists rather than
+/// being sugar. Unanchored, `APP|CAM` matches inside `APPLE` and `SCAM`; anchored, a member
+/// carrying a metacharacter is compiled instead of compared, so `R+D` — the one value being
+/// tested for — does not match and `RRD` does. `in` compares literals, so neither can arise.
+const ORGS: &str = "org\nAPP\nAPPLE\nSCAM\nR+D\nRRD\n";
+
+#[test]
+fn membership_is_literal_not_a_pattern() {
+    let b = run(ORGS, r#"[k] = in([org], "APP", "CAM", "R+D")"#);
+    let got: Vec<&str> = (0..5).map(|r| b.cell(r, 1)).collect();
+    assert_eq!(got, ["true", "false", "false", "true", "false"]);
+}
+
+#[test]
+fn the_alternation_it_replaces_gets_both_rows_wrong() {
+    // Pinned as the motivation, not as behavior to keep: regexmatch is doing what it was
+    // asked. Should this ever start agreeing with `in`, the reason for `in` has changed.
+    let b = run(ORGS, r#"[k] = regexmatch([org], "^(?:APP|CAM|R+D)$")"#);
+    assert_eq!(b.cell(3, 1), "false", "R+D compiled as a pattern");
+    assert_eq!(b.cell(4, 1), "true", "RRD matched a member nobody listed");
+}
+
+/// Comparison is `eval_cmp`'s, so `in` inherits the value model rather than inventing one:
+/// numeric only when both sides are already numbers.
+#[test]
+fn membership_is_numeric_only_when_both_sides_are() {
+    let b = run("qty\n007\n7\n", r#"[k] = in([qty], "7")"#);
+    assert_eq!(b.cell(0, 1), "false", "a leading zero is not dropped");
+    assert_eq!(b.cell(1, 1), "true");
+
+    let b = run("qty\n007\n7\n", r#"[k] = in(num([qty]), 7)"#);
+    assert_eq!(b.cell(0, 1), "true", "cast, both sides are numbers");
+}
+
+#[test]
+fn membership_compares_dates_chronologically() {
+    let b = run(
+        "hired\n04/03/2024\n05/03/2024\n",
+        r#"[k] = in(date([hired], "DD/MM/YYYY"), date("2024-03-04"))"#,
+    );
+    assert_eq!(b.cell(0, 1), "true", "same day, different layout");
+    assert_eq!(b.cell(1, 1), "false");
+}
+
+/// Exact, like `[name]` addressing and for the same reason. The folded form is one visible
+/// call rather than a hidden policy.
+#[test]
+fn membership_is_case_exact() {
+    let b = run("org\napp\n", r#"[k] = in([org], "APP")"#);
+    assert_eq!(b.cell(0, 1), "false");
+    let b = run("org\napp\n", r#"[k] = in(upper([org]), "APP")"#);
+    assert_eq!(b.cell(0, 1), "true");
+}
+
+/// An empty member is an ordinary test, not a special case — blank-handling vocabulary stays
+/// with `default`/`coalesce`.
+#[test]
+fn an_empty_member_tests_for_a_blank_cell() {
+    // A quoted empty field is a real record; a bare blank line is not a row at all.
+    let b = run("org\nAPP\n\"\"\n", r#"[k] = in([org], "")"#);
+    assert_eq!(b.cell(0, 1), "false");
+    assert_eq!(b.cell(1, 1), "true");
+}
+
+#[test]
+fn membership_against_nothing_is_a_correction() {
+    let e = err(ORGS, r#"[k] = in([org])"#);
+    assert!(e.contains("at least one member"), "got: {e}");
+    let e = err(ORGS, r#"[k] = in()"#);
+    assert!(e.contains("at least one member"), "got: {e}");
+}
+
+/// The headline use: a set as an address. Reads as a set, not as a pipe-delimited pattern.
+#[test]
+fn a_set_addresses_rows() {
+    let mut buf = io::read_str(ORGS, b',', true).unwrap();
+    let p = parser::parse_program(r#"in([org], "APP", "R+D") del"#).unwrap();
+    exec::run(&mut buf, &p).unwrap();
+    assert_eq!(io::serialize(&buf).unwrap(), "org\nAPPLE\nSCAM\nRRD\n");
+}

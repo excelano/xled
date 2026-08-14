@@ -43,6 +43,10 @@ Highest → lowest: `fn()` / atom  >  unary `-`  >  `* /`  >  `+ -`  >  `&` (con
 
 **No boolean `and`/`or`/`not` operators in expr** — that is the slippery slope out of xled's lane. Multi-condition logic nests through `if()`/`coalesce()`; genuine multi-predicate filtering is xql's job. This keeps expr consistent with refusing combinators in *address* position, which is the same boundary drawn in `composition-grammar.md`.
 
+**`in(x, …)` is not the exception that reopens it.** `in(x, a, b)` is `x == a or x == b`, so it owes this refusal an answer rather than a pass. The answer is that **`in`'s arguments are values, not predicates** — one subject against a closed list of members. It combines nothing; the `or` is internal to a single test, which is why SQL gives `IN` its own primitive instead of making people write the chain. `coalesce` is already the variadic first-one-that-answers shape on the value side, and `in` is its sibling on the predicate side.
+
+What the refusal has always meant is that no *operator* chains conditions: there is no production for one, so there is no rule for a parser to enforce (`ebnf.md`, the combinator wall). It has never meant two conditions cannot be combined at all — `if(cond, true, other)` nests them today and is documented above as the way to. `in(true, [a] > 5, [b] < 3)` arrives at the same place through the same door: neither newly possible nor recommended, because a real multi-predicate filter is a query and reads better as one. The wall is against growing the grammar toward xql's job, not against a determined nesting.
+
 ## Function library
 
 Excel-faithful names where the user's Excel half reads them on sight; awk where that memory is stronger. Locked David 2026-06-21.
@@ -59,6 +63,7 @@ The set is **derived, not invented**: the original library came out of rendering
 | `default(x, fb)` | `x` unless it is empty, then `fb` |
 | `coalesce(a, b, …)` | first non-empty argument |
 | `if(cond, a, b)` | `a` when `cond` is true, else `b` — a pure expression, **not** control flow |
+| `in(x, a, …)` | → bool, whether `x` equals any member. Members are **literals compared**, never a pattern |
 
 **Text**
 
@@ -101,6 +106,8 @@ A pattern is an ordinary argument, so it may be a column and vary from row to ro
 **Dates** — `date`, `text`, `year`, `month`, `day`, `weekday`, `today`. Their own section below.
 
 `if()` draws the no-control-flow line precisely: a conditional *expression* (a function returning a value) is in; statement-level branching and loops are out. Chosen over awk's `?:` because `:` is already the range operator and `if()` reuses the function-call machinery with zero new syntax — David confirmed 2026-06-21. It is also Excel's exact spelling for a half-Excel user.
+
+`in(x, a, …)` is the set-membership test, and it exists because the alternation that could stand in for it is wrong twice over. Unanchored, `^(?:APP|CAM)$` without its anchors matches inside `APPLE` and `SCAM`. Anchored, every member is still regex *source*, so a value carrying a metacharacter is compiled rather than compared — against `^(?:R+D)$`, the value `R+D` does not match and `RRD` does, which is the failure landing on the one row that matters and saying nothing. `in` compares literals, so neither is available to it. Comparison is the layer's own — numeric only when both sides are already numbers, chronological only when both are dates, string-wise otherwise — so `in(num([qty]), 1, 2)` is numeric and `in([code], "007")` is not. Case is exact, like `[name]` addressing and for the same reason; `in(upper([org]), "APP")` is the folded form, one visible call rather than a hidden policy. An empty member is an ordinary test that a blank cell passes, since `default`/`coalesce` already own the blank-handling vocabulary. A subject with no members (`in(x)`) is a correction, not a constant false. Reading the set from a column or a file would be a join, and that is xql's.
 
 Deliberately absent: boolean `and`/`or` **operators** (nest `if`, or it is an xql query); a regex-extract function (→ `s///` in place — revisit only if split-into-columns earns a home, see proving-ground B8); `row()`, which would let a computed cell read its own position and break the value-in/value-out model — `--number` emits logical row numbers instead, and the error says so rather than reporting an unknown function.
 

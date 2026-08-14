@@ -273,6 +273,34 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
             let cond = cast_bool(&eval(buf, row, &args[0])?)?;
             eval(buf, row, if cond { &args[1] } else { &args[2] })
         }
+        // Set membership. The subject is compared against literals, which is what separates
+        // this from the alternation it replaces: `^(?:APP|CAM)$` matches substrings when the
+        // anchors are forgotten and compiles its own members when one carries a metacharacter
+        // (`R+D` is the one value such a pattern will not match). Neither failure is available
+        // to a comparison.
+        //
+        // Comparison is `eval_cmp`'s, not a second opinion: numeric only when both sides are
+        // already numbers, chronological only when both are dates, string-wise otherwise. So
+        // `in(num([qty]), 1, 2)` is numeric and `in([code], "007")` is not, and case is exact
+        // for the same reason `[name]` addressing is — fold it visibly with `upper()`.
+        // Nothing special happens for an empty member: `in([x], "")` is an ordinary test that
+        // a blank cell passes, and blank-handling vocabulary stays with default/coalesce.
+        "in" => {
+            if argc < 2 {
+                return Err(EvalErr::Hard(XledError::Correction(format!(
+                    "in() takes a value and at least one member — in([col], \"A\", \"B\") — \
+                     got {argc} argument(s). A membership test against nothing is a typo, not \
+                     a constant false."
+                ))));
+            }
+            let subject = eval(buf, row, &args[0])?;
+            for member in &args[1..] {
+                if eval_cmp(CmpOp::Eq, &subject, &eval(buf, row, member)?) {
+                    return Ok(Value::Bool(true));
+                }
+            }
+            Ok(Value::Bool(false))
+        }
         // Case-folding: Unicode, matching `s///`'s `\U`/`\L` exactly (both use char::to_upper/
         // lowercase), so `upper([c])` and `[c] s/.*/\U&/` never diverge on non-ASCII.
         "upper" => {
@@ -469,7 +497,7 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
         // flag that does emit logical row numbers instead of leaving a bare "unknown function".
         // Regex as a *value*, not a command. `s///` rewrites the cells it addresses, so it can
         // only ever write back into the column it read; these read one column and can be
-        // assigned into another, which is the whole gap they close (#18).
+        // assigned into another, which is the whole gap they close.
         "regexreplace" => {
             want(3)?;
             let text = eval(buf, row, &args[0])?.as_string();

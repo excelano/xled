@@ -199,7 +199,13 @@ Function library (full signatures in `reference.md`): text — `len left right m
 substr trim ltrim rtrim lpad rpad`; case — `upper lower proper` (same Unicode fold as
 `s///`'s `\U`/`\L`); regex — `regexreplace regexmatch`; numbers — `round abs floor ceil
 mod min max`; dates — `date text year month day weekday today`; casts and logic — `num
-bool default coalesce if`. Concatenate with `&`.
+bool default coalesce if in`. Concatenate with `&`.
+
+**Set membership is `in()`, not an alternation.** `in([org], "APP", "CAM", "CES")`
+compares literals; `regexmatch([org], "^(?:APP|CAM|CES)$")` compiles them, so a member
+carrying a metacharacter (`R+D`, `C++`, `Dept.`) never matches while a value nobody
+listed (`RRD`) does — silently, on the row that matters. It addresses rows directly:
+`in([org], "APP", "CAM") del`.
 
 **Deriving one column from another by pattern is `regexreplace`, not `s///`.** `s///`
 rewrites the cells it addresses, so it can only write back into the column it read. To

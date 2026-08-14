@@ -16,7 +16,7 @@ regex = "1"
 csv = "1"
 clap = { version = "4", features = ["derive"] }
 rustyline = "18"
-encsniff = "0.1.0"
+encsniff = "0.2.0"
 # Dates only — no times, no timezones (see expr-grammar.md, Dates). `clock` is carried solely for
 # today(), which must read the local calendar day: a UTC-only build would name the wrong
 # day for part of every day in most of the world.

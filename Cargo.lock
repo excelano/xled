@@ -205,9 +205,9 @@ dependencies = [
 
 [[package]]
 name = "encsniff"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcbef2fac7ceab06754546cea8cc18bc738feaac016344995c87c48ff400bb60"
+checksum = "7c664255d6421230324c0c075a57d3997cf1129f2f6e97e7ba3faff9771299c5"
 
 [[package]]
 name = "endian-type"

@@ -62,14 +62,22 @@ fn sniff_and_warn(path: &str) {
     let Ok(s) = encsniff::sniff_file(path) else {
         return;
     };
-    if s.action != encsniff::Action::Warn {
+    if !s.is_warning() {
         return;
     }
-    if let Some(enc) = s.encoding {
-        eprintln!("xled: warning: {path} appears to be {enc} encoded.");
-        if let Some(hint) = &s.hint {
-            eprintln!("hint: {hint}");
-        }
+    // Two shapes of warning. A signature match can name the encoding; a window
+    // that is merely not valid UTF-8 cannot, and saying so plainly beats the
+    // old behaviour, which was to call the file usable and let the read fail
+    // with "stream did not contain valid UTF-8" — a message naming neither the
+    // problem nor the fix.
+    match s.encoding {
+        Some(enc) => eprintln!("xled: warning: {path} appears to be {enc} encoded."),
+        None => eprintln!(
+            "xled: warning: {path} is not valid UTF-8, and its encoding could not be identified."
+        ),
+    }
+    if let Some(hint) = &s.hint {
+        eprintln!("hint: {hint}");
     }
 }
 

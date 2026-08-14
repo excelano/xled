@@ -19,12 +19,13 @@ fn run(args: &[&str], stdin: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn xled");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    // The write is allowed to fail. A usage error is refused at argument
+    // parsing, before anything reads stdin, so the child can already be gone by
+    // the time this lands and the pipe comes back EPIPE. That is the child
+    // having answered, not the test failing — every assertion here is on its
+    // exit status and its output. Unwrapping made it a coin flip that had come
+    // up heads since --count landed and finally came up tails in CI.
+    let _ = child.stdin.take().unwrap().write_all(stdin.as_bytes());
     child.wait_with_output().expect("wait for xled")
 }
 

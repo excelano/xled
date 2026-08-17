@@ -12,16 +12,16 @@ keywords = ["csv", "sed", "awk", "tabular", "regex"]
 categories = ["command-line-utilities", "text-processing"]
 
 [dependencies]
-regex = "1"
-csv = "1"
-clap = { version = "4", features = ["derive"] }
-rustyline = "18"
+regex = "1.13.1"
+csv = "1.4.0"
+clap = { version = "4.6.6", features = ["derive"] }
+rustyline = "18.0.1"
 encsniff = "0.2.0"
 # Dates only — no times, no timezones (see expr-grammar.md, Dates). `clock` is carried solely for
 # today(), which must read the local calendar day: a UTC-only build would name the wrong
 # day for part of every day in most of the world.
 chrono = { version = "0.4.38", default-features = false, features = ["std", "clock"] }
-xaddr = "0.2"
+xaddr = "0.2.1"
 
 [package.metadata.deb]
 maintainer = "David M. Anderson <david.anderson@excelano.com>"

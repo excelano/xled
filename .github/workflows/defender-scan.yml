@@ -1,0 +1,42 @@
+name: Defender scan
+
+# The scan itself lives in excelano/.github, so every repo in the fleet runs the
+# same one and a correction reaches all of them at once. What stays here is when
+# to run and which tag to scan: that is this repo's business, the policy is the
+# fleet's. Same split as ci.yml and codeql.yml, and this file is byte-identical
+# across every winget-shipping repo — change it there, not here.
+#
+# Why it exists: winget's `08. Installation Validation` installs the package and
+# runs it, and a Defender flag at that step blocks the submission with no
+# detection name published anywhere you can read. The called workflow reproduces
+# that install-and-run under armed Defender before a manifest is ever submitted.
+# Rationale and the failure modes are documented in the called workflow itself.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to scan, e.g. v1.9.0"
+        required: true
+        type: string
+      dynamic:
+        description: "Also execute the binaries directly under armed Defender (deep diagnosis)"
+        required: false
+        default: false
+        type: boolean
+      rollback-definitions:
+        description: "Roll Defender definitions back first (see the called workflow; usually void)"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  scan:
+    uses: excelano/.github/.github/workflows/defender-scan.yml@main
+    with:
+      tag: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+      # Dispatch only. A release should not arm and disarm the runner's
+      # antivirus beyond what the standard passes already do.
+      dynamic: ${{ github.event_name == 'workflow_dispatch' && inputs.dynamic }}
+      rollback-definitions: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback-definitions }}

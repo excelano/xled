@@ -11,9 +11,16 @@ name: Defender scan
 # detection name published anywhere you can read. The called workflow reproduces
 # that install-and-run under armed Defender before a manifest is ever submitted.
 # Rationale and the failure modes are documented in the called workflow itself.
+#
+# Dispatch only, and deliberately. A `release: published` trigger sat here from
+# 2026-08-18 to 2026-09-01 and never fired. It could not have: a release created
+# by a workflow using the default GITHUB_TOKEN raises no event, the same
+# suppression deb.yml documents and works around by hand. An automatic run is
+# not wanted in any case. The scan checks a file at rest, it does not predict
+# `08. Installation Validation`, and a clean run is not clearance — dispatch it
+# when you want the at-rest check on a particular release, and read the result
+# as one data point. See ~/notes/releasing.md.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -35,8 +42,6 @@ jobs:
   scan:
     uses: excelano/.github/.github/workflows/defender-scan.yml@main
     with:
-      tag: ${{ github.event.inputs.tag || github.event.release.tag_name }}
-      # Dispatch only. A release should not arm and disarm the runner's
-      # antivirus beyond what the standard passes already do.
-      dynamic: ${{ github.event_name == 'workflow_dispatch' && inputs.dynamic }}
-      rollback-definitions: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback-definitions }}
+      tag: ${{ inputs.tag }}
+      dynamic: ${{ inputs.dynamic }}
+      rollback-definitions: ${{ inputs.rollback-definitions }}

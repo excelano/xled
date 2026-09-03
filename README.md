@@ -90,6 +90,14 @@ If you have a Rust toolchain, install the published crate from [crates.io](https
 cargo install xled && xled --install-skill
 ```
 
+### X-CMD
+
+[x-cmd](https://www.x-cmd.com/) is a modern Shell toolkit that gives AI agents and developers powerful, portable, and composable command-line capabilities.
+
+```bash
+x eget use excelano/xled
+```
+
 ### Build from source
 
 xled requires only a Rust toolchain. Four pure-Rust crates carry the load (`regex`, `csv`, `clap`, `rustyline`); there are no C dependencies and no runtime.

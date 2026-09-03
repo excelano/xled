@@ -42,12 +42,21 @@ pub fn read_str(data: &str, delim: u8, has_header: bool) -> Result<Buffer> {
 }
 
 /// Read a file, choosing the delimiter from its extension unless one is given.
+///
+/// The path is opened exactly once and everything downstream works from that buffer.
+/// Sniffing used to re-open it, which is invisible on a regular file and fatal on any
+/// other kind: a process substitution or a piped `/dev/stdin` was drained by the sniff
+/// and read back as an empty table at exit 0, and a named pipe blocked on the second
+/// open waiting for a writer that had already finished.
 pub fn read_file(path: &str, delim: Option<u8>, has_header: bool) -> Result<Buffer> {
-    sniff_and_warn(path);
     // Name the file in the error. A bare "No such file or directory" is useless
     // in a script that reads several, and the OS error alone does not carry it.
-    let data =
-        std::fs::read_to_string(path).map_err(|e| crate::XledError::Io(format!("{path}: {e}")))?;
+    let bytes = std::fs::read(path).map_err(|e| XledError::Io(format!("{path}: {e}")))?;
+    sniff_and_warn(path, &bytes);
+    // The sniff above has already warned about a non-UTF-8 encoding and named the
+    // iconv fix, so this error is the fallback for bytes it could not characterize.
+    let data = String::from_utf8(bytes)
+        .map_err(|_| XledError::Io(format!("{path}: not valid UTF-8 text")))?;
     // UTF-8 BOM from Excel "Save as CSV UTF-8" — strip it so the first column
     // name doesn't carry a U+FEFF character.
     let trimmed = data.strip_prefix('\u{FEFF}').unwrap_or(&data);
@@ -55,13 +64,11 @@ pub fn read_file(path: &str, delim: Option<u8>, has_header: bool) -> Result<Buff
     read_str(trimmed, delim, has_header)
 }
 
-/// Sniff the file head for non-UTF-8 encodings and emit a one-line iconv hint
-/// when warranted. Sniff failures are silently ignored — the downstream read
-/// will surface a clearer error if the file is really unreadable.
-fn sniff_and_warn(path: &str) {
-    let Ok(s) = encsniff::sniff_file(path) else {
-        return;
-    };
+/// Sniff the already-read bytes for non-UTF-8 encodings and emit a one-line iconv
+/// hint when warranted. Takes the bytes rather than the path so the input is read
+/// once — see `read_file`. `path` is still needed to compose the hint.
+fn sniff_and_warn(path: &str, bytes: &[u8]) {
+    let s = encsniff::sniff_bytes(bytes);
     if !s.is_warning() {
         return;
     }
@@ -76,7 +83,13 @@ fn sniff_and_warn(path: &str) {
             "xled: warning: {path} is not valid UTF-8, and its encoding could not be identified."
         ),
     }
-    if let Some(hint) = &s.hint {
+    // `sniff_bytes` leaves `hint` empty because it has no path to name; compose it
+    // here from the same encoding verdict `sniff_file` would have used.
+    let hint = match s.encoding {
+        Some(enc) => encsniff::iconv_command(enc, Path::new(path)),
+        None => Some(encsniff::iconv_guess_command(Path::new(path))),
+    };
+    if let Some(hint) = hint {
         eprintln!("hint: {hint}");
     }
 }

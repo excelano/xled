@@ -363,6 +363,16 @@ fn emit(r: Rendered, in_place: Option<&str>, file: Option<&str>) -> xled::Result
                 );
                 exit(2);
             }
+            // Reading a non-regular source works — the input is read once — but rewriting
+            // one does not: fs::write on a FIFO blocks until a reader appears, and the
+            // backup copy would drain it first. Refuse before touching either.
+            if !fs::metadata(path).map(|m| m.is_file()).unwrap_or(false) {
+                eprintln!(
+                    "xled: -i rewrites a file in place, and {path} is not a regular file — \
+                     redirect the result instead: xled … {path} > out.csv"
+                );
+                exit(2);
+            }
             let backup = (!suffix.is_empty()).then(|| format!("{path}{suffix}"));
             if let Some(b) = &backup {
                 fs::copy(path, b).map_err(|e| xled::XledError::Io(e.to_string()))?;

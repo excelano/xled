@@ -177,16 +177,21 @@ is **no automatic coercion**. This is the whole point — it is what keeps leadi
 and long identifiers intact — so respect it:
 
 - **Arithmetic and numeric comparison require an explicit `num()` cast.** `[a] * [b]`
-  is an error; write `num([a]) * num([b])`. `[qty] < [reorder]` compares *as strings*
-  (so `"9" > "10"` is true, lexically); cast both sides: `num([qty]) < num([reorder])`.
+  does not multiply and does not fail loudly either — it skips every row as an
+  uncomputable cast, so you get the tally below and an empty column at exit 0. Write
+  `num([a]) * num([b])`. `[qty] < [reorder]` compares *as strings* (so `"9" > "10"` is
+  true, lexically); cast both sides: `num([qty]) < num([reorder])`.
 - **Money:** numbers serialize at full `f64` precision and xled never rounds on write,
   so wrap any currency/decimal result in `round(…, 2)`.
 - **Leading zeros / IDs:** they survive because cells are strings. Do *not* `num()` a
   zip or account number you want to keep padded — that throws the zeros away.
 - **`lpad`/`rpad` never truncate** (a value already at/over the width is returned as-is),
   and **`mod` takes the dividend's sign** (`mod(-3,5)` is `-3`, following awk not Excel).
-- A **failed cast is non-halting**: that cell is left untouched and a tally goes to
-  stderr. So a bad value in one row won't abort the whole run.
+- A **failed cast is non-halting**: a tally goes to stderr and the run continues, so a
+  bad value in one row won't abort it. What happens to the cell depends on the target:
+  assigning into an **existing** column leaves the value that was already there; a
+  column the assignment **creates** has no prior value, so the cell is empty. Either
+  way the column reaches every row, and the table stays rectangular.
 - **Dates need `date()` and never a guessed layout.** A bare `date([col])` reads ISO
   only; anything else must be spelled out — `date([col], "DD/MM/YYYY")`. A non-ISO
   value under a bare `date()` **halts** (the command is under-specified, and equally

@@ -34,13 +34,23 @@ fn err(csv: &str, delim: u8, prog: &str) -> String {
 
 #[test]
 fn uncomputable_cells_raise_a_notice_not_a_stderr_aside() {
-    // [status] is all words; num() can't cast any of them, so every row is skipped and
-    // left unchanged. The tally comes back as a notice on the Outcome (a real result),
-    // not an eprintln! that bypasses the caller.
+    // [status] is all words; num() can't cast any of them, so every row is skipped. The
+    // tally comes back as a notice on the Outcome (a real result), not an eprintln! that
+    // bypasses the caller. [score] is new here, so the skipped cells are empty, not kept.
     let n = notices(APP, b',', r"[score] = num([status])");
     assert_eq!(n.len(), 1);
     assert!(n[0].contains("skipped"));
-    assert!(n[0].contains("left unchanged"));
+    assert!(n[0].contains("left empty"), "got: {}", n[0]);
+}
+
+#[test]
+fn a_skip_into_an_existing_column_keeps_what_was_there() {
+    // The other half of the same notice: assigning into a column that already holds
+    // values leaves those values, so the wording has to say so. Getting these two
+    // confused is what made a skipped new column look harmless.
+    let n = notices(APP, b',', r"[criticality] = num([status])");
+    assert_eq!(n.len(), 1);
+    assert!(n[0].contains("left unchanged"), "got: {}", n[0]);
 }
 
 #[test]
@@ -146,4 +156,62 @@ fn chain_scrub_then_derive() {
     let prog = "[price] s/[$,]//g\n[bump] = round(num([price]) * 2, 2)";
     let b = run(PRODUCTS, b',', prog);
     assert_eq!(b.cell(0, 4), "39.98"); // 19.99 * 2
+}
+
+// --- a materialized column reaches every row (#21) ------------------------
+
+/// Field counts per serialized line, header first. A table is rectangular when they
+/// are all equal; the bugs behind #21 were visible only at this level, because both
+/// the buffer and `describe` reported the widest row as the column count.
+fn widths(b: &Buffer) -> Vec<usize> {
+    io::serialize(b)
+        .unwrap()
+        .lines()
+        .map(|l| l.split(',').count())
+        .collect()
+}
+
+#[test]
+fn a_partly_skipped_new_column_still_reaches_every_row() {
+    // round() over a column with one uncastable value: row 2 skips. It must still get
+    // the field, or the header claims a column the row does not have.
+    let csv = "sku,price\nP1,10.00\nP2,n/a\n";
+    let b = run(csv, b',', r"[total] = round(num([price]) * 2, 2)");
+    assert_eq!(widths(&b), vec![3, 3, 3]);
+    assert_eq!(b.cell(0, 2), "20");
+    assert_eq!(b.cell(1, 2), "", "a skipped new cell is empty, not absent");
+}
+
+#[test]
+fn a_wholly_skipped_new_column_still_reaches_every_row() {
+    // The forgotten-num() case: arithmetic on raw text skips every row. The column is
+    // created and empty — the one shape where nothing computed at all.
+    let csv = "sku,price\nP1,10.00\nP2,n/a\n";
+    let b = run(csv, b',', r"[total] = [price] * 2");
+    assert_eq!(widths(&b), vec![3, 3, 3]);
+    assert_eq!(b.col_name(2), Some("total"));
+    assert_eq!(b.cell(0, 2), "");
+    assert_eq!(b.cell(1, 2), "");
+}
+
+#[test]
+fn a_new_column_addressed_by_letter_widens_the_header_too() {
+    // The mirror-image raggedness: a letter target never carried a name, so it grew the
+    // rows and left the header a column short — on the path where every row computed.
+    let csv = "sku,price\nP1,10\nP2,20\n";
+    let b = run(csv, b',', r"C = num([price]) * 2");
+    assert_eq!(widths(&b), vec![3, 3, 3]);
+    assert_eq!(b.col_name(2), Some(""), "a letter target names nothing");
+    assert_eq!(b.cell(0, 2), "20");
+    assert_eq!(b.cell(1, 2), "40");
+}
+
+#[test]
+fn a_skip_into_an_existing_column_leaves_a_short_row_short() {
+    // The fix is scoped to a column being created. Ragged input assigned into a column
+    // that already exists is left as it was found — xled does not silently rectangularize
+    // a file it was not asked to reshape.
+    let csv = "a,b,c\n1,2,3\n4,5\n";
+    let b = run(csv, b',', r"[b] = num([b]) * 2");
+    assert_eq!(widths(&b), vec![3, 3, 2]);
 }

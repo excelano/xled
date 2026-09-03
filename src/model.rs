@@ -68,6 +68,20 @@ impl Buffer {
         self.header.as_ref()?.iter().position(|h| h == name)
     }
 
+    /// Widen row `r` to at least `width` cells, filling with empties.
+    ///
+    /// Used when an assignment materializes a column: every row has to gain the field,
+    /// whether or not the expression produced a value for it, or the rows disagree with
+    /// the header. Not counted as an edit — an empty cell in a column that did not exist
+    /// a moment ago is that column's ground state, not a change worth reporting.
+    pub fn pad_row(&mut self, r: usize, width: usize) {
+        if let Some(row) = self.rows.get_mut(r) {
+            if row.len() < width {
+                row.resize(width, String::new());
+            }
+        }
+    }
+
     /// Write a cell, padding the row with empty cells if it is short (pad-on-write, rule 8).
     pub fn set_cell(&mut self, r: usize, c: usize, value: String) {
         if let Some(row) = self.rows.get_mut(r) {

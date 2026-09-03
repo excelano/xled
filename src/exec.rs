@@ -386,13 +386,25 @@ fn apply_assign(
     })?;
     let (col, rows, create) = assign_target(buf, reference)?;
 
-    // Materialize a new column: extend the header overlay (if any) with its name.
-    if let Some(name) = create {
-        if let Some(h) = buf.header.as_mut() {
-            if h.len() <= col {
-                h.resize(col + 1, String::new());
-            }
+    // Materialize a new column up front, before anything is evaluated, so the table is
+    // rectangular whatever the expression does to any particular row. Growing it as a
+    // side effect of a successful write left two ragged shapes: a cast that skipped some
+    // rows gave those rows no field at all beneath a header that had already grown one,
+    // and a column addressed by letter widened the rows without ever widening the header.
+    let creating = col >= buf.ncols();
+    if let Some(h) = buf.header.as_mut() {
+        if h.len() <= col {
+            h.resize(col + 1, String::new());
+        }
+        // Only a bracketed target carries a name. A letter target leaves the new header
+        // cell empty, which is what `A`-style addressing means: a column with no name.
+        if let Some(name) = create {
             h[col] = name;
+        }
+    }
+    if creating {
+        for &r in &rows {
+            buf.pad_row(r, col + 1);
         }
     }
 
@@ -408,8 +420,15 @@ fn apply_assign(
         // Lenient cast-failure tally (errors.md correction voice), raised as an advisory
         // notice so it rides the result channel — folded into the preview, inline in the
         // REPL, on stderr in a one-shot — instead of bypassing it via stderr unconditionally.
+        // A column that did not exist before this command has no prior value to keep, so
+        // say what the cell now holds rather than claiming it was left as it was.
+        let outcome = if creating {
+            "left empty"
+        } else {
+            "left unchanged"
+        };
         notices.push(format!(
-            "{} cell(s) skipped (not computable): rows {} — left unchanged.",
+            "{} cell(s) skipped (not computable): rows {} — {outcome}.",
             skipped.len(),
             join_rows(&skipped)
         ));

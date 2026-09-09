@@ -16,6 +16,11 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
+      dry_run:
+        description: 'Build and check the packages but attach nothing - for exercising this against a release that already shipped'
+        required: false
+        type: boolean
+        default: false
       tag:
         description: 'Tag to build .debs for (e.g., v0.12.3)'
         required: true
@@ -29,3 +34,4 @@ jobs:
     uses: excelano/.github/.github/workflows/deb.yml@main
     with:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
+      dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}

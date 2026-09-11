@@ -9,11 +9,11 @@ not of its siblings.
 | | |
 |---|---|
 | Loop | cargo-dist |
-| Version lives in | `version` in `Cargo.toml` |
+| Version lives in | `Cargo.toml` |
 | `apt-ship` argument | `xled` |
-| crate | `xled` |
-| winget package | `Excelano.xled` |
-| Windows asset | `xled-x86_64-pc-windows-msvc.zip` |
+| Packages per release | 2, amd64 arm64 |
+| crates | `xled` |
+| winget package | `Excelano.xled` — `xled-x86_64-pc-windows-msvc.zip` |
 
 **The crate, the command, the Homebrew formula, and the apt package are all
 `xled`** — one name everywhere, unlike xray, whose crate is the hyphenated

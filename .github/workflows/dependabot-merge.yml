@@ -1,0 +1,16 @@
+name: dependabot-merge
+
+on:
+  check_suite:
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge:
+    if: github.event.check_suite.conclusion == 'success' && startsWith(github.event.check_suite.head_branch, 'dependabot/')
+    uses: excelano/.github/.github/workflows/dependabot-merge.yml@main
+    with:
+      sha: ${{ github.event.check_suite.head_sha }}

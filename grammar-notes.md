@@ -43,7 +43,7 @@ Bare = positional, bracketed = named. That one rule resolves every disambiguatio
 
 **Range operator is `:`, never `-`.** Hyphenated headers make a `-` range unparseable, and A1 already uses `:`. Decided, not preference.
 
-**Name matching is case-sensitive and exact.** `camelCase` headers (`userId`) sit next to `snake_case` ones. `[userId]` must not match `userid`. A header is data; silently case-folding it is the same class of surprise as dropping a leading zero from `02134`. Case-insensitive matching is an explicit opt-in, never the default. (Confirmed with David, 2026-06-21.)
+**Name matching is case-sensitive and exact.** `camelCase` headers (`userId`) sit next to `snake_case` ones. `[userId]` must not match `userid`. A header is data; silently case-folding it is the same class of surprise as dropping a leading zero from `02134`. Case-insensitive matching is an explicit opt-in, never the default.
 
 **Letters are intrinsic; names are an overlay.** Every file has an A,B,C grid regardless of whether row 1 is a header. Names are a convenience layer over that grid when a header exists. Consequences:
 

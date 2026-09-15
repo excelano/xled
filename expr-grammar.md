@@ -19,7 +19,7 @@ Case-folding and trimming were first held out of expr on the argument that they 
 
 Four types: string, number, bool, date. The buffer is all strings; expr lifts a cell to a typed value, computes, and serializes back to a string on write. **No auto-coercion** — casts are explicit (`num()`, `bool()`, `date()`), the same property that keeps leading zeros and long IDs safe. A cast failure is non-halting: it leaves the cell unchanged and increments the warning tally (`semantics.md` rule 6, lenient).
 
-**Comparisons are string-wise unless cast.** `[qty] < [reorder]` compares the literal strings — `"9" > "10"` lexically, which is *not* numeric order. For numeric order, cast both sides: `num([qty]) < num([reorder])`. This is the price of no-coercion and it is deliberate: auto-numifying (awk's behavior) reintroduces exactly the silent surprises the stringly model exists to prevent. David confirmed 2026-06-21. The proving ground's A3 example is corrected to the cast form.
+**Comparisons are string-wise unless cast.** `[qty] < [reorder]` compares the literal strings — `"9" > "10"` lexically, which is *not* numeric order. For numeric order, cast both sides: `num([qty]) < num([reorder])`. This is the price of no-coercion and it is deliberate: auto-numifying (awk's behavior) reintroduces exactly the silent surprises the stringly model exists to prevent. The proving ground's A3 example uses the cast form.
 
 ## Atoms
 
@@ -49,7 +49,7 @@ What the refusal has always meant is that no *operator* chains conditions: there
 
 ## Function library
 
-Excel-faithful names where the user's Excel half reads them on sight; awk where that memory is stronger. Locked David 2026-06-21.
+Excel-faithful names where the user's Excel half reads them on sight; awk where that memory is stronger.
 
 The set is **derived, not invented**: the original library came out of rendering `proving-ground.md` Part B against the grammar, and each addition since has come from a case the battery or real use produced. Nothing is here because a spreadsheet has it.
 
@@ -105,7 +105,7 @@ A pattern is an ordinary argument, so it may be a column and vary from row to ro
 
 **Dates** — `date`, `text`, `year`, `month`, `day`, `weekday`, `today`. Their own section below.
 
-`if()` draws the no-control-flow line precisely: a conditional *expression* (a function returning a value) is in; statement-level branching and loops are out. Chosen over awk's `?:` because `:` is already the range operator and `if()` reuses the function-call machinery with zero new syntax — David confirmed 2026-06-21. It is also Excel's exact spelling for a half-Excel user.
+`if()` draws the no-control-flow line precisely: a conditional *expression* (a function returning a value) is in; statement-level branching and loops are out. Chosen over awk's `?:` because `:` is already the range operator and `if()` reuses the function-call machinery with zero new syntax. It is also Excel's exact spelling for a half-Excel user.
 
 `in(x, a, …)` is the set-membership test, and it exists because the alternation that could stand in for it is wrong twice over. Unanchored, `^(?:APP|CAM)$` without its anchors matches inside `APPLE` and `SCAM`. Anchored, every member is still regex *source*, so a value carrying a metacharacter is compiled rather than compared — against `^(?:R+D)$`, the value `R+D` does not match and `RRD` does, which is the failure landing on the one row that matters and saying nothing. `in` compares literals, so neither is available to it. Comparison is the layer's own — numeric only when both sides are already numbers, chronological only when both are dates, string-wise otherwise — so `in(num([qty]), 1, 2)` is numeric and `in([code], "007")` is not. Case is exact, like `[name]` addressing and for the same reason; `in(upper([org]), "APP")` is the folded form, one visible call rather than a hidden policy. An empty member is an ordinary test that a blank cell passes, since `default`/`coalesce` already own the blank-handling vocabulary. A subject with no members (`in(x)`) is a correction, not a constant false. Reading the set from a column or a file would be a join, and that is xql's.
 

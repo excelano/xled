@@ -62,26 +62,6 @@ winget install Excelano.xled
 xled --install-skill
 ```
 
-Or run the standalone installer in PowerShell:
-
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://github.com/excelano/xled/releases/latest/download/xled-installer.ps1 | iex"
-```
-
-### Prebuilt binary (Linux and macOS)
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/excelano/xled/main/install.sh | sh
-```
-
-The installer downloads the right tarball for your platform from the GitHub release, verifies its checksum, and drops the binary into `~/.cargo/bin` (or the equivalent on Windows). If `xled` isn't found on your `PATH` afterward, ensure `~/.cargo/bin` is on it. Releases also ship raw tarballs (`xled-*.tar.xz` / `.zip`) for manual installation. To uninstall:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/excelano/xled/main/uninstall.sh | sh
-```
-
-That removes the binary from `~/.cargo/bin`; you can also just `rm ~/.cargo/bin/xled`.
-
 ### Cargo
 
 If you have a Rust toolchain, install the published crate from [crates.io](https://crates.io/crates/xled). This compiles from source rather than fetching a prebuilt binary, so it is slower than the installer above but needs nothing else:
@@ -111,7 +91,7 @@ xled --install-skill
 
 That writes `~/.claude/skills/xled/` and stamps in the version it came from, so a later run reports whether the skill has fallen behind the binary rather than leaving you to notice. It is safe to re-run: an unchanged skill reports `already current` and nothing is written. `xled --uninstall-skill` removes it. Restart Claude Code afterwards, since skills are discovered at session start.
 
-The skill is compiled into the binary, so this works the same however you installed xled — apt, Homebrew, cargo, the curl one-liner, or a build from source.
+The skill is compiled into the binary, so this works the same however you installed xled — apt, Homebrew, cargo, or a build from source.
 
 ## Three ways to run it
 

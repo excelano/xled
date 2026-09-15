@@ -8,7 +8,7 @@ cargo-dist-version = "0.31.0"
 # CI backends to support
 ci = "github"
 # The installers to generate for each app
-installers = ["shell", "powershell", "homebrew"]
+installers = ["homebrew"]
 tap = "excelano/homebrew-tap"
 publish-jobs = ["homebrew"]
 # Target platforms to build apps for (Rust target-triple syntax)

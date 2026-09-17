@@ -5,9 +5,9 @@ name: deb
 # and a correction reaches all of them at once. What stays here is when to run
 # and what this repo is called.
 #
-# cargo-dist creates the release with the default GITHUB_TOKEN and GitHub fires
-# no `release: published` for a token-created release, so this is dispatched by
-# hand after one:
+# The release is created with a person's token, which fires `release:
+# published`, so this starts itself. A release created with a workflow's
+# GITHUB_TOKEN fires nothing, and is dispatched by hand instead:
 #
 #     gh workflow run deb.yml -f tag=v0.12.3
 

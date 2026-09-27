@@ -355,6 +355,36 @@ fn describe(buf: &Buffer) -> String {
         .filter(|&h| h > leading); // a narrow non-blank row precedes the first full-width row
 
     let mut out = format!("{nrows} rows × {ncols} cols.");
+
+    // Raggedness: rows disagree with each other on field count. `ncols` is the widest of
+    // them, so this is the one place that width gets checked against the rest.
+    let row_lens: Vec<usize> = buf.rows.iter().map(|r| r.len()).collect();
+    if let (Some(&min), Some(&max)) = (row_lens.iter().min(), row_lens.iter().max()) {
+        if min != max {
+            let first_short = row_lens.iter().position(|&w| w < max).unwrap();
+            out.push_str(&format!(
+                " rows are {min}–{max} fields wide (first short row: {}).",
+                first_short + 1
+            ));
+        }
+    }
+    // A header narrower than the widest row means `ncols` itself is misleading: some of
+    // those columns have no name.
+    if let Some(h) = &buf.header {
+        if h.len() < ncols {
+            let (from, to) = (crate::model::col_to_letter(h.len()), crate::model::col_to_letter(ncols - 1));
+            let cols = if h.len() + 1 == ncols {
+                format!("column {from}")
+            } else {
+                format!("columns {from}–{to}")
+            };
+            out.push_str(&format!(
+                " header names {} of {ncols} cols ({cols} unnamed).",
+                h.len()
+            ));
+        }
+    }
+
     out.push_str(&format!(" leading blank rows: {leading}."));
     out.push_str(&format!(" trailing blank rows: {trailing}."));
     if let Some(h) = header_guess {

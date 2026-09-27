@@ -150,3 +150,36 @@ fn describe_does_not_invent_a_header_on_a_clean_table() {
         "false positive: {out}"
     );
 }
+
+#[test]
+fn describe_flags_a_short_row() {
+    // #23: ncols is the widest row, so a short row must be called out separately.
+    let csv = "a,b,c\n1,2,3\n4,5\n";
+    let out = run_out(csv, b',', true, "describe");
+    assert!(out.contains("3 cols"), "got: {out}");
+    assert!(
+        out.contains("rows are 2–3 fields wide (first short row: 2)"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn describe_flags_a_header_narrower_than_the_data() {
+    // #23: the header itself disagrees with ncols, so `3 cols` over two names is
+    // the case where the count is doing the misleading.
+    let csv = "a,b\n1,2,3\n4,5\n";
+    let out = run_out(csv, b',', true, "describe");
+    assert!(out.contains("3 cols"), "got: {out}");
+    assert!(
+        out.contains("header names 2 of 3 cols (column C unnamed)"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn describe_says_nothing_extra_about_a_rectangular_table() {
+    // A genuinely rectangular table gets no raggedness or header-width clause.
+    let out = run_out(PRODUCTS, b',', true, "describe");
+    assert!(!out.contains("fields wide"), "false positive: {out}");
+    assert!(!out.contains("header names"), "false positive: {out}");
+}

@@ -280,10 +280,10 @@ fn do_fill(buf: &mut Buffer, scope: &CellSet) {
 fn do_drop_blanks(buf: &mut Buffer, axis: DropAxis) {
     if matches!(axis, DropAxis::Both | DropAxis::Rows) {
         let row_empty = |row: &Vec<String>| row.iter().all(|s| s.is_empty());
-        while buf.rows.first().is_some_and(&row_empty) {
+        while buf.rows.first().is_some_and(row_empty) {
             buf.rows.remove(0);
         }
-        while buf.rows.last().is_some_and(&row_empty) {
+        while buf.rows.last().is_some_and(row_empty) {
             buf.rows.pop();
         }
     }

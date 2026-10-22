@@ -372,7 +372,10 @@ fn describe(buf: &Buffer) -> String {
     // those columns have no name.
     if let Some(h) = &buf.header {
         if h.len() < ncols {
-            let (from, to) = (crate::model::col_to_letter(h.len()), crate::model::col_to_letter(ncols - 1));
+            let (from, to) = (
+                crate::model::col_to_letter(h.len()),
+                crate::model::col_to_letter(ncols - 1),
+            );
             let cols = if h.len() + 1 == ncols {
                 format!("column {from}")
             } else {

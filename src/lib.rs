@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! xled — sed and awk for tabular data.
 //!
 //! The library core: parse a program to statements, run them against an in-memory buffer.
@@ -11,6 +14,7 @@ pub mod expr;
 pub mod io;
 pub mod model;
 pub mod parser;
+pub mod report;
 pub mod resolver;
 pub mod session;
 pub mod subst;

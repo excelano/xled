@@ -11,7 +11,8 @@ use crate::ast::{Command, Statement};
 use crate::errors::{Result, XledError};
 use crate::exec::{self, Outcome};
 use crate::io;
-use crate::model::Buffer;
+use crate::model::{Buffer, Edits};
+use crate::report::{self, Before, Summary};
 
 pub struct Session {
     pub buf: Buffer,
@@ -44,16 +45,27 @@ impl Session {
         Ok(out)
     }
 
-    /// Run a program against a throwaway clone and return what it would show (or the
-    /// resulting table) — never commits. Any notices ride above the result as a banner:
-    /// this is where the user sees a cast-skip warning *before* deciding to commit.
+    /// Run a program against a throwaway clone and return what it would show — never
+    /// commits. An edit that changes cells shows one line per changed cell; one that only
+    /// changes the table's structure shows the resulting table. Any notices ride above the
+    /// result as a banner: this is where the user sees a cast-skip warning *before*
+    /// deciding to commit.
     pub fn preview(&self, program: &[Statement]) -> Result<String> {
         let mut working = self.buf.clone();
+        working.edits = Edits {
+            log: Some(Vec::new()),
+            ..Edits::default()
+        };
+        let before = Before::of(&working);
         let out = exec::run(&mut working, program)?;
-        let body = if out.output.is_empty() {
+        let changed = report::diff_lines(&working);
+        let body = if !out.output.is_empty() {
+            out.output.join("\n")
+        } else if changed.is_empty() {
             io::serialize(&working)
         } else {
-            out.output.join("\n")
+            let summary = Summary::since(&before, &working);
+            format!("{}\n{}", changed.join("\n"), summary.preview())
         };
         if out.notices.is_empty() {
             Ok(body)

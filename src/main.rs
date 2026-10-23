@@ -16,6 +16,7 @@ use rustyline::DefaultEditor;
 use std::fs;
 use std::io::{self, IsTerminal, Read, Write};
 use std::process::exit;
+use xled::report::{self, Before, Summary};
 use xled::{exec, io as xio, model::Buffer, parser, session::Session};
 
 /// The exit-code contract, stated so a caller can branch on it without experimenting.
@@ -73,6 +74,11 @@ struct Cli {
     /// twice. Applies to inspect scripts (a bare address / `show`)
     #[arg(long, conflicts_with_all = ["raw", "number"])]
     count: bool,
+    /// print one line per changed cell instead of the table — its address, old value and new
+    /// value, as `C5 [price]: "$1,200" → "1200"` — so a script can be checked before it is
+    /// trusted. With -i, the file is written and the lines are the record of what changed
+    #[arg(long, conflicts_with_all = ["raw", "number", "count"])]
+    diff: bool,
     /// treat the first row as data, not a header. Use this when the real header is buried
     /// under a title block: row numbers then match the file, so you can `crop` to the table
     /// and promote the right row with `header` (otherwise row 1 is silently taken as the
@@ -144,7 +150,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
                 reject_in_place_on_stdin(&file, in_place);
                 let buf = read_input(&file, delim, has_header)?;
                 let name = (file != "-").then_some(file.as_str());
-                emit(render(buf, &script, opts)?, in_place, name)
+                emit(render(buf, &script, opts, cli.diff)?, in_place, name)
             }
             None => {
                 if stdin_tty {
@@ -152,7 +158,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
                     exit(2);
                 }
                 emit(
-                    render(read_stdin(delim, has_header)?, &script, opts)?,
+                    render(read_stdin(delim, has_header)?, &script, opts, cli.diff)?,
                     in_place,
                     None,
                 )
@@ -166,7 +172,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
             reject_in_place_on_stdin(&file, in_place);
             let buf = read_input(&file, delim, has_header)?;
             let name = (file != "-").then_some(file.as_str());
-            emit(render(buf, &script, opts)?, in_place, name)
+            emit(render(buf, &script, opts, cli.diff)?, in_place, name)
         }
         // single positional: a file to open (terminal) or a script over piped stdin
         (Some(arg), None) => {
@@ -183,7 +189,7 @@ fn real_main(cli: Cli) -> xled::Result<()> {
                 repl(buf, Some(arg))
             } else {
                 let buf = read_stdin(delim, has_header)?;
-                emit(render(buf, &arg, opts)?, in_place, None)
+                emit(render(buf, &arg, opts, cli.diff)?, in_place, None)
             }
         }
         (None, _) => {
@@ -235,83 +241,27 @@ struct Rendered {
     /// true when the script produced `show`/inspect output rather than mutating the table —
     /// such a result must not be written back over the source file by `-i`.
     is_query: bool,
-    /// What the run changed, reported to stderr after an in-place write. `None` for an
-    /// inspect result, which changes nothing by definition.
-    summary: Option<EditSummary>,
-}
-
-/// What an in-place edit did. Printed to stderr after a successful `-i` write, because
-/// `-i` sends nothing to stdout and a silent success is indistinguishable from a script
-/// whose address matched no cells.
-struct EditSummary {
-    cells: usize,
-    /// Display labels for the columns those cells were in — a bracketed header name where
-    /// there is one, the spreadsheet letter otherwise, addressed the way you would re-run it.
-    cols: Vec<String>,
-    shape_before: (usize, usize),
-    shape_after: (usize, usize),
-    header_changed: bool,
-}
-
-impl EditSummary {
-    /// True when the run left the table exactly as it found it.
-    fn is_noop(&self) -> bool {
-        self.cells == 0 && self.shape_before == self.shape_after && !self.header_changed
-    }
-
-    /// The stderr line for a successful write, minus the `xled: ` prefix.
-    fn describe(&self, path: &str, backup: Option<&str>) -> String {
-        if self.is_noop() {
-            // Deliberately does not claim the address matched nothing: a compute that
-            // wrote back the values already there lands here too, and the two are
-            // indistinguishable from the outside.
-            return format!(
-                "{path} rewritten unchanged — the address matched no cells, or the script \
-                 wrote the values already there"
-            );
-        }
-        let mut parts = Vec::new();
-        if self.cells > 0 {
-            let where_ = match self.cols.len() {
-                0 => String::new(),
-                1 => format!(" in {}", self.cols[0]),
-                n if n <= 3 => format!(" across {}", self.cols.join(", ")),
-                n => format!(" across {n} columns"),
-            };
-            parts.push(format!(
-                "{} cell{} changed{where_}",
-                self.cells,
-                if self.cells == 1 { "" } else { "s" }
-            ));
-        }
-        if self.shape_before != self.shape_after {
-            let (br, bc) = self.shape_before;
-            let (ar, ac) = self.shape_after;
-            parts.push(format!(
-                "now {ar} row{} × {ac} column{} (was {br} × {bc})",
-                if ar == 1 { "" } else { "s" },
-                if ac == 1 { "" } else { "s" }
-            ));
-        }
-        if self.header_changed {
-            parts.push("header changed".to_string());
-        }
-        let backup = backup
-            .map(|b| format!(", original kept as {b}"))
-            .unwrap_or_default();
-        format!("wrote {path} — {}{backup}", parts.join(", "))
-    }
+    /// What the run changed, reported to stderr after an in-place write or a `--diff`.
+    /// `None` for an inspect result, which changes nothing by definition.
+    summary: Option<Summary>,
+    /// The `--diff` lines, when asked for.
+    diff: Option<String>,
 }
 
 /// Run the script once. If the program only mutated the buffer, the rendered text is the
 /// serialized table (sed-without-`-i` behaviour); if it produced `show` output, that is the
 /// text and `is_query` is set. Notices always go to stderr so the data stream stays clean.
-fn render(mut buf: Buffer, script: &str, opts: exec::RenderOpts) -> xled::Result<Rendered> {
+fn render(
+    mut buf: Buffer,
+    script: &str,
+    opts: exec::RenderOpts,
+    diff: bool,
+) -> xled::Result<Rendered> {
     let program = parser::parse_program(script)?;
-    // Captured before the run so the summary can report structural commands, which
-    // never reach set_cell and so contribute nothing to the cell tally.
-    let shape_before = (buf.nrows(), buf.ncols());
-    let header_before = buf.header.clone();
+    let before = Before::of(&buf);
+    if diff {
+        buf.edits.log = Some(Vec::new());
+    }
     let out = exec::run_with(&mut buf, &program, opts)?;
     for n in &out.notices {
         eprintln!("{n}");
@@ -323,31 +273,30 @@ fn render(mut buf: Buffer, script: &str, opts: exec::RenderOpts) -> xled::Result
                  `show`); this script writes the whole table, so they had no effect"
             );
         }
-        let summary = EditSummary {
-            cells: buf.edits.cells,
-            cols: buf
-                .edits
-                .cols
+        let diff = diff.then(|| {
+            report::diff_lines(&buf)
                 .iter()
-                .map(|&c| match buf.col_name(c) {
-                    Some(name) if !name.trim().is_empty() => format!("[{name}]"),
-                    _ => xled::model::col_to_letter(c),
-                })
-                .collect(),
-            shape_before,
-            shape_after: (buf.nrows(), buf.ncols()),
-            header_changed: buf.header != header_before,
-        };
+                .map(|line| format!("{line}\n"))
+                .collect()
+        });
         Ok(Rendered {
             text: xio::serialize(&buf),
             is_query: false,
-            summary: Some(summary),
+            summary: Some(Summary::since(&before, &buf)),
+            diff,
         })
     } else {
+        if diff {
+            eprintln!(
+                "note: --diff reports changed cells, and this script only inspects the table, \
+                 so it had no effect"
+            );
+        }
         Ok(Rendered {
             text: format!("{}\n", out.output.join("\n")),
             is_query: true,
             summary: None,
+            diff: None,
         })
     }
 }
@@ -385,15 +334,21 @@ fn emit(r: Rendered, in_place: Option<&str>, file: Option<&str>) -> xled::Result
             // run whose address matched nothing look identical. Report to stderr,
             // which keeps the data stream clean for the redirect case.
             if let Some(s) = &r.summary {
-                eprintln!("xled: {}", s.describe(path, backup.as_deref()));
+                eprintln!("xled: {}", s.written(path, backup.as_deref()));
             }
-            Ok(())
+            r.diff.as_deref().map_or(Ok(()), write_stdout)
         }
         (Some(_), None) => {
             eprintln!("xled: -i edits a file in place — it needs a file argument, not piped stdin");
             exit(2);
         }
-        (None, _) => write_stdout(&r.text),
+        (None, _) => match (&r.diff, &r.summary) {
+            (Some(diff), Some(s)) => {
+                eprintln!("xled: {}", s.preview());
+                write_stdout(diff)
+            }
+            _ => write_stdout(&r.text),
+        },
     }
 }
 

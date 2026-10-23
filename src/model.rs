@@ -22,9 +22,9 @@ pub struct Buffer {
     /// path, so every value-level command is measured the same way and writing
     /// a cell its existing value is not reported as an edit.
     ///
-    /// Structural commands — `crop`, `del`, `header`, `fill`, `drop blanks` —
-    /// do not pass through `set_cell`. Comparing the buffer's dimensions before
-    /// and after is what covers those.
+    /// Structural commands — `crop`, `del`, `header`, `rename`, `drop blanks` —
+    /// do not pass through `set_cell`. Comparing the buffer's dimensions and header
+    /// before and after is what covers those.
     pub edits: Edits,
     /// How the source text was laid out, so writing it back changes only what was edited.
     pub layout: Layout,
@@ -63,6 +63,18 @@ pub struct Edits {
     pub cells: usize,
     /// The columns those cells were in, deduplicated and in column order.
     pub cols: std::collections::BTreeSet<usize>,
+    /// Every change in the order it was made, kept only when a caller asks for it
+    /// by setting `Some`, since a large edit would otherwise hold each value twice.
+    pub log: Option<Vec<Change>>,
+}
+
+/// One cell's value change, at the row it had when the change was made.
+#[derive(Clone)]
+pub struct Change {
+    pub row: usize,
+    pub col: usize,
+    pub old: String,
+    pub new: String,
 }
 
 impl Buffer {
@@ -194,6 +206,14 @@ impl Buffer {
             if row[c] != value {
                 self.edits.cells += 1;
                 self.edits.cols.insert(c);
+                if let Some(log) = self.edits.log.as_mut() {
+                    log.push(Change {
+                        row: r,
+                        col: c,
+                        old: row[c].clone(),
+                        new: value.clone(),
+                    });
+                }
             }
             row[c] = value;
         }

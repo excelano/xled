@@ -119,6 +119,15 @@ xled: products.csv rewritten unchanged — the address matched no cells, or the 
 
 That second line is worth reading. A script whose address matched nothing still exits 0 and still rewrites the file, so a silent success would look exactly like a successful edit; `unchanged` is what tells you the header name was misspelled rather than the data being already clean.
 
+`--diff` shows which cells a script changes, one line per cell with its address, old value and new value. On its own it is a preview that leaves the file alone; with `-i` the file is written and the lines record what changed:
+
+```
+$ xled --diff '[price] s/[$,]//g' products.csv
+xled: 2 cells changed in [price]
+C1 [price]: "$1,200" → "1200"
+C2 [price]: "$30" → "30"
+```
+
 `-f` (`--file`) reads the script from a file rather than the command line, which avoids the `"$(cat …)"` dance when a batch of edits grows past a comfortable one-liner:
 
 ```sh

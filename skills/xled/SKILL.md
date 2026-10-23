@@ -17,13 +17,14 @@ codes; `reference.md` in this directory has the full grammar and function librar
 
 ## When it is the right tool
 
-xled rewrites cells inside the table's existing shape. It never coerces a value, so
+xled rewrites cells inside the table's existing shape and never coerces a value, so
 leading zeros, 20-digit IDs and `1E5`-looking strings come back as they went in. Python's
-`csv` module keeps strings too, so fidelity alone is not the reason to choose xled. The
-reasons are that a cleanup (crop, header, trim, case, currency, dates, fill-down)
-is one short declarative script rather than a loop with quoting inside a bash string,
-that `-i.bak` edits in place and reports on stderr how many cells changed in which
-columns, and that it refuses to guess an ambiguous date layout.
+`csv` module keeps values as strings too, but its writer re-encodes every row (LF becomes
+CRLF, needless quotes go); xled writes the rows it did not change back byte for byte, so a
+one-cell edit is a one-line change to the file. Beyond that, a cleanup (crop, header,
+trim, case, currency, dates, fill-down) is one short declarative script rather than a loop
+with quoting inside a bash string, `--diff` lists every changed cell with its old and new
+value, and xled refuses to guess an ambiguous date layout.
 
 Hand off when the task changes something other than cell values. Unpivot, pivot,
 transpose, split a column, explode a delimited cell or merge columns is **xshape**. Join,
@@ -54,6 +55,7 @@ Names are bracketed and case-sensitive (`[Annual Cost]`); bare letters and numbe
 positions. Put each command on its own line.
 
 ```sh
+xled --diff '[annual_cost] s/[$,]//g' portfolio.csv          # preview: one line per change
 xled -i.bak '[annual_cost] s/[$,]//g' portfolio.csv          # strip currency, keep a backup
 xled '[total] = round(num([price]) * 1.0825, 2)' products.csv # arithmetic needs num()
 xled '[zip] = lpad([zip], 5, "0")' zips.csv                   # restore stripped zeros

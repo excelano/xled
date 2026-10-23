@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! Execute a parsed program against a buffer: resolve each statement's scope, run its
 //! command. Slice 1 implements `show` (and the implicit show of a bare reference), which
 //! renders the selected cells back to CSV/DSV text.
@@ -357,11 +360,19 @@ fn describe(buf: &Buffer) -> String {
     let mut out = format!("{nrows} rows × {ncols} cols.");
 
     // Raggedness: rows disagree with each other on field count. `ncols` is the widest of
-    // them, so this is the one place that width gets checked against the rest.
-    let row_lens: Vec<usize> = buf.rows.iter().map(|r| r.len()).collect();
-    if let (Some(&min), Some(&max)) = (row_lens.iter().min(), row_lens.iter().max()) {
+    // them, so this is the one place that width gets checked against the rest. A blank
+    // line has no fields and is reported as a blank row, not a short one.
+    let row_lens: Vec<(usize, usize)> = buf
+        .rows
+        .iter()
+        .enumerate()
+        .filter(|(_, row)| !row.is_empty())
+        .map(|(r, row)| (r, row.len()))
+        .collect();
+    let widths = row_lens.iter().map(|&(_, w)| w);
+    if let (Some(min), Some(max)) = (widths.clone().min(), widths.max()) {
         if min != max {
-            let first_short = row_lens.iter().position(|&w| w < max).unwrap();
+            let first_short = row_lens.iter().find(|&&(_, w)| w < max).unwrap().0;
             out.push_str(&format!(
                 " rows are {min}–{max} fields wide (first short row: {}).",
                 first_short + 1

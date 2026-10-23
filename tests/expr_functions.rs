@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! Compute-library completeness (post-0.3.0 Tier 1): the case, trim, pad, and numeric
 //! functions added to `= expr`. Library-level like `slice3_compute.rs` — read an inline CSV,
 //! run the program, read the computed column back. New columns append at the original width,
@@ -316,5 +319,5 @@ fn a_set_addresses_rows() {
     let mut buf = io::read_str(ORGS, b',', true).unwrap();
     let p = parser::parse_program(r#"in([org], "APP", "R+D") del"#).unwrap();
     exec::run(&mut buf, &p).unwrap();
-    assert_eq!(io::serialize(&buf).unwrap(), "org\nAPPLE\nSCAM\nRRD\n");
+    assert_eq!(io::serialize(&buf), "org\nAPPLE\nSCAM\nRRD\n");
 }

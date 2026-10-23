@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! Slice 5 conformance: Part B12 (REPL behaviour) — preview, undo, deliberate save,
 //! dirty tracking, and one-shot/REPL parity.
 
@@ -90,13 +93,13 @@ fn oneshot_matches_repl_sequence() {
     let batch = {
         let mut b = io::read_str(PRODUCTS, b',', true).unwrap();
         xled::run(&mut b, &prog("[price] s/[.]//g\n[sku] del")).unwrap();
-        io::serialize(&b).unwrap()
+        io::serialize(&b)
     };
     let stepwise = {
         let mut s = session();
         s.run(&prog("[price] s/[.]//g")).unwrap();
         s.run(&prog("[sku] del")).unwrap();
-        io::serialize(&s.buf).unwrap()
+        io::serialize(&s.buf)
     };
     assert_eq!(batch, stepwise);
 }

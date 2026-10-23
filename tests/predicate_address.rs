@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! A leading function call as a row-set address: `regexmatch([org], "^APP$") del`.
 //!
 //! Before this, an address had to *be* a comparison — a bare bool-valued call read as column
@@ -20,7 +23,7 @@ fn after(csv: &str, prog: &str) -> String {
     let mut buf = io::read_str(csv, b',', true).unwrap();
     let p = parser::parse_program(prog).unwrap();
     exec::run(&mut buf, &p).unwrap();
-    io::serialize(&buf).unwrap()
+    io::serialize(&buf)
 }
 
 fn err(csv: &str, prog: &str) -> String {

@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! A live editing session: the buffer plus the things the REPL needs around it —
 //! an undo stack, the source path, and a dirty flag. Mutations are transactional
 //! (applied to a clone, swapped in on success) so a mid-program error never leaves
@@ -48,7 +51,7 @@ impl Session {
         let mut working = self.buf.clone();
         let out = exec::run(&mut working, program)?;
         let body = if out.output.is_empty() {
-            io::serialize(&working)?
+            io::serialize(&working)
         } else {
             out.output.join("\n")
         };
@@ -80,7 +83,7 @@ impl Session {
             .ok_or_else(|| {
                 XledError::Correction("no file to write to — give a path: write <path>".into())
             })?;
-        std::fs::write(&target, io::serialize(&self.buf)?)?;
+        std::fs::write(&target, io::serialize(&self.buf))?;
         if self.source.is_none() {
             self.source = Some(target.clone());
         }

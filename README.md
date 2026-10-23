@@ -241,7 +241,7 @@ Query, join, aggregate, group, and sort are out of scope — that is [xql](https
 
 ## Implementation
 
-xled is a hand-written recursive-descent parser over a stringly-typed buffer (`Vec<Vec<String>>` with a promotable header overlay), feeding a resolver that turns any address into a set of `(row, column)` coordinates, and an executor that applies each command under its scope contract. The `csv` crate handles the genuinely hard parsing — embedded commas, escaped quotes, embedded newlines — and unchanged cells round-trip byte-for-byte, so leading zeros and quoted fields survive untouched. The `regex` crate powers selection and the `s///` engine, whose sed-faithful replacement dialect (backreferences, `&`, and case-folding) is implemented directly over its captures.
+xled is a hand-written recursive-descent parser over a stringly-typed buffer (`Vec<Vec<String>>` with a promotable header overlay), feeding a resolver that turns any address into a set of `(row, column)` coordinates, and an executor that applies each command under its scope contract. The `csv` crate handles the genuinely hard parsing — embedded commas, escaped quotes, embedded newlines — and rows a script does not change are written back byte-for-byte, line endings and quoting included, so leading zeros and quoted fields survive untouched. The `regex` crate powers selection and the `s///` engine, whose sed-faithful replacement dialect (backreferences, `&`, and case-folding) is implemented directly over its captures.
 
 ## License
 

@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! Slice 1 conformance: Part B1 (inspect/select) + B13 round-trip, against fixtures/.
 //! Each case is `fixture + command → expected output`.
 
@@ -95,11 +98,11 @@ fn negation_excludes_first_row() {
 fn round_trip_preserves_leading_zeros_byte_for_byte() {
     // B13: read → serialize is identical, leading zeros intact
     let buf = io::read_str(IDS_ZIPS, b',', true).unwrap();
-    assert_eq!(io::serialize(&buf).unwrap(), IDS_ZIPS);
+    assert_eq!(io::serialize(&buf), IDS_ZIPS);
 }
 
 #[test]
 fn round_trip_products() {
     let buf = io::read_str(PRODUCTS, b',', true).unwrap();
-    assert_eq!(io::serialize(&buf).unwrap(), PRODUCTS);
+    assert_eq!(io::serialize(&buf), PRODUCTS);
 }

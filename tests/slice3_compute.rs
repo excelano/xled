@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! Slice 3 conformance: Part B9 (compute/derive), B10 (conditional/blank),
 //! A3 (single comparison as scope; combinators refused), A6 (create column by assign).
 
@@ -165,7 +168,6 @@ fn chain_scrub_then_derive() {
 /// the buffer and `describe` reported the widest row as the column count.
 fn widths(b: &Buffer) -> Vec<usize> {
     io::serialize(b)
-        .unwrap()
         .lines()
         .map(|l| l.split(',').count())
         .collect()

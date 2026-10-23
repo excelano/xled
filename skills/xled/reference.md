@@ -199,13 +199,16 @@ break value-in/value-out). Use the `--number` flag to emit logical row numbers.
 
 ## Input encoding
 
-xled expects **UTF-8**. A leading BOM (Excel "Save as CSV UTF-8") is stripped so the
-first header isn't polluted. If the file looks like UTF-7 (the `+ACI-` escape some
-exporters emit) or carries a UTF-16 BOM, xled warns at startup with the exact `iconv`
-command to convert it first, rather than failing with a raw "invalid UTF-8" error.
-Unchanged cells round-trip **byte-for-byte** (the leading-zero / quoted-field
-guarantee); the `csv` crate handles embedded commas, escaped quotes, and embedded
-newlines correctly.
+xled expects **UTF-8**. A leading BOM (Excel "Save as CSV UTF-8") is kept out of the
+first header name and written back on output. If the file looks like UTF-7 (the `+ACI-`
+escape some exporters emit) or carries a UTF-16 BOM, xled warns at startup with the exact
+`iconv` command to convert it first, rather than failing with a raw "invalid UTF-8" error.
+
+Rows a script does not change are written back **byte-for-byte**, quoting included, and
+the file keeps its line terminator (LF, CRLF or CR) and its final newline or lack of one.
+A changed row is re-encoded with quotes only where a field needs them. A blank line is a
+row with no fields, so row numbers match the file's lines; `drop blanks rows` trims blank
+rows at the edges.
 
 ## Error vocabulary
 

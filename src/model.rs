@@ -7,7 +7,8 @@
 //! The header is an overlay (name→column), promotable from any row via `N header`; it is
 //! kept separate from the data rows. Ragged rows are tolerated: a missing cell reads as "".
 
-/// Column-letter ↔ index is bijective base-26: A=0, Z=25, AA=26, …
+use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Buffer {
@@ -25,6 +26,34 @@ pub struct Buffer {
     /// do not pass through `set_cell`. Comparing the buffer's dimensions before
     /// and after is what covers those.
     pub edits: Edits,
+    /// How the source text was laid out, so writing it back changes only what was edited.
+    pub layout: Layout,
+}
+
+/// The parts of a CSV file's text that its parsed cells do not record.
+#[derive(Clone)]
+pub struct Layout {
+    /// A UTF-8 byte-order mark preceded the text. Excel needs it to read UTF-8.
+    pub bom: bool,
+    /// The line terminator: `\n`, `\r\n`, or `\r`.
+    pub terminator: &'static str,
+    /// The last record ended with a terminator.
+    pub final_newline: bool,
+    /// The original text of each record that xled would encode differently, such as one
+    /// with a needlessly quoted field, keyed by xled's encoding of it. A row still holding
+    /// those fields is written as it was.
+    pub verbatim: Arc<HashMap<String, String>>,
+}
+
+impl Default for Layout {
+    fn default() -> Self {
+        Layout {
+            bom: false,
+            terminator: "\n",
+            final_newline: true,
+            verbatim: Arc::default(),
+        }
+    }
 }
 
 /// A tally of value-level changes, for the `-i` summary.

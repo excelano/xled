@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! The xled CLI/REPL.
 //!
 //! Three modes, sed-shaped:
@@ -336,7 +339,7 @@ fn render(mut buf: Buffer, script: &str, opts: exec::RenderOpts) -> xled::Result
             header_changed: buf.header != header_before,
         };
         Ok(Rendered {
-            text: xio::serialize(&buf)?,
+            text: xio::serialize(&buf),
             is_query: false,
             summary: Some(summary),
         })

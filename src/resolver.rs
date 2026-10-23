@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! Resolve a `Reference` against a buffer to a set of cells (0-based `(row, col)`).
 //!
 //! The address algebra is set algebra over cells: union/intersect/negate combine cell sets,
@@ -66,6 +69,7 @@ pub fn resolve(buf: &Buffer, r: &Reference) -> Result<CellSet> {
         // rather than in xaddr because xshape wants the uniform rule.
         Reference::Range(spec) => {
             check_columns_in_range(buf, spec)?;
+            check_column_names(buf, spec)?;
             spec.cells(buf, xaddr::Bounds::Clamp)
                 .map_err(|e| XledError::Correction(e.message))
         }
@@ -104,6 +108,31 @@ fn check_columns_in_range(buf: &Buffer, spec: &xaddr::Spec) -> Result<()> {
                  A bare word is read as column letters, so if {wrote} was meant as a command \
                  there is no such command — see --help; if it is a column name, write [{wrote}]."
             )));
+        }
+    }
+    Ok(())
+}
+
+/// Refuse a bracketed name the header lacks, with the hint `unknown_column` gives. A table
+/// with no header at all is left to xaddr, whose refusal says to address by letter.
+fn check_column_names(buf: &Buffer, spec: &xaddr::Spec) -> Result<()> {
+    if buf.header.is_none() {
+        return Ok(());
+    }
+    let positions = spec.items().iter().flat_map(|item| match item {
+        xaddr::Item::Single(pos) => vec![pos],
+        xaddr::Item::Range { start, end } => start.iter().chain(end).collect(),
+    });
+    for pos in positions {
+        if let xaddr::Pos::Column(xaddr::ColRef::Name(name))
+        | xaddr::Pos::Cell {
+            col: xaddr::ColRef::Name(name),
+            ..
+        } = pos
+        {
+            if buf.name_to_col(name).is_none() {
+                return Err(XledError::Correction(buf.unknown_column(name)));
+            }
         }
     }
     Ok(())
@@ -161,7 +190,7 @@ fn not_a_predicate(e: &Expr, v: &Value) -> XledError {
 fn resolve_col_regex(buf: &Buffer, col: &str, neg: bool, body: &str, ci: bool) -> Result<CellSet> {
     let c = buf
         .name_to_col(col)
-        .ok_or_else(|| XledError::Correction(format!("no column named [{col}]")))?;
+        .ok_or_else(|| XledError::Correction(buf.unknown_column(col)))?;
     let re = compile(body, ci)?;
     let ncols = buf.ncols();
     let mut set = CellSet::new();

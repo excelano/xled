@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! The compute layer: evaluate an `Expr` against one row to a typed `Value`.
 //!
 //! Four types (string/number/bool/date), no auto-coercion — casts are explicit (`num`, `bool`,
@@ -69,9 +72,9 @@ pub fn eval(buf: &Buffer, row: usize, e: &Expr) -> Result<Value, EvalErr> {
         Expr::Str(s) => Ok(Value::Str(s.clone())),
         Expr::Bool(b) => Ok(Value::Bool(*b)),
         Expr::Col(name) => {
-            let c = buf.name_to_col(name).ok_or_else(|| {
-                EvalErr::Hard(XledError::Correction(format!("no column named [{name}]")))
-            })?;
+            let c = buf
+                .name_to_col(name)
+                .ok_or_else(|| EvalErr::Hard(XledError::Correction(buf.unknown_column(name))))?;
             Ok(Value::Str(buf.cell(row, c).to_string()))
         }
         Expr::Neg(inner) => {

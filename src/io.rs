@@ -88,13 +88,21 @@ pub fn read_str(data: &str, delim: u8, has_header: bool) -> Result<Buffer> {
         (None, records)
     };
 
-    Ok(Buffer {
+    let buf = Buffer {
         header,
         rows,
         delim,
         edits: Edits::default(),
         layout,
-    })
+    };
+    if let Some(line) = buf.title_as_header() {
+        eprintln!(
+            "xled: warning: row 1 looks like a title, not a header, so every row address \
+             is one off from the file. If the table's header is line {line}, rerun with \
+             --no-header and start the script with `{line}:$ crop` and `1 header`."
+        );
+    }
+    Ok(buf)
 }
 
 /// The first line terminator in `gap`, if it holds one.

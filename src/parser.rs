@@ -1,3 +1,6 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! Recursive-descent parser, productions mirroring ebnf.md.
 //!
 //! The address algebra is parsed by precedence: union (`,`) → intersect (`SP`) → negate (`!`)
@@ -120,7 +123,14 @@ fn parse_statement(line: &str) -> Result<Statement> {
     };
     p.skip_spaces();
     if !p.eof() {
-        return Err(parse(format!("unexpected trailing input: {:?}", p.rest())));
+        let rest = p.rest();
+        if matches!(command, Some(Command::Header)) && rest.trim().parse::<usize>().is_ok() {
+            return Err(XledError::Correction(format!(
+                "`header` takes its row as an address, written first: `{} header`",
+                rest.trim()
+            )));
+        }
+        return Err(parse(format!("unexpected trailing input: {rest:?}")));
     }
     Ok(Statement { reference, command })
 }

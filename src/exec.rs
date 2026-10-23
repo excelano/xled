@@ -339,21 +339,9 @@ fn describe(buf: &Buffer) -> String {
     // preamble (a title block like "RISK LOG" / "PM:"). The body's modal fill-count is the
     // table width; a header is the first row to reach it. `leading blank rows` can't catch
     // this because the preamble rows aren't blank — they're just narrow.
-    let width = |r: usize| (0..ncols).filter(|&c| !buf.cell(r, c).is_empty()).count();
-    let mut freq: std::collections::BTreeMap<usize, usize> = std::collections::BTreeMap::new();
-    for r in 0..nrows {
-        let w = width(r);
-        if w > 0 {
-            *freq.entry(w).or_default() += 1;
-        }
-    }
-    let body_width = freq
-        .iter()
-        .max_by_key(|(_, &n)| n)
-        .map(|(&w, _)| w)
-        .unwrap_or(0);
+    let body_width = buf.body_width();
     let header_guess = (body_width >= 2)
-        .then(|| (0..nrows).find(|&r| width(r) >= body_width))
+        .then(|| (0..nrows).find(|&r| buf.filled(r) >= body_width))
         .flatten()
         .filter(|&h| h > leading); // a narrow non-blank row precedes the first full-width row
 

@@ -35,11 +35,13 @@ and names the step to take.
 
 Without `--no-header`, xled takes row 1 as the header. If a title block sits above the
 real header, the title line becomes the header, every row address is off by one from
-what you see, and a `crop` meant to include the header drops it, all at exit 0. Pass
-`--no-header`, crop to the table, then promote its first row:
+what you see, and a `crop` meant to include the header drops it, at exit 0. xled warns on
+stderr when row 1 is a lone title above a wider table, but a title block it does not
+recognize gets no warning. Pass `--no-header`, crop to the table, then promote its first
+row:
 
 ```sh
-xled --no-header 'A4:E7 crop
+xled --no-header '4:$ crop
 1 header' report.csv
 ```
 

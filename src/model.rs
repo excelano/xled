@@ -100,6 +100,62 @@ impl Buffer {
         self.header.as_ref()?.iter().position(|h| h == name)
     }
 
+    /// How many cells of row `r` hold a value.
+    pub fn filled(&self, r: usize) -> usize {
+        self.rows
+            .get(r)
+            .map_or(0, |row| row.iter().filter(|s| !s.is_empty()).count())
+    }
+
+    /// The filled-cell count most data rows share: the table's working width.
+    pub fn body_width(&self) -> usize {
+        let mut freq: std::collections::BTreeMap<usize, usize> = Default::default();
+        for r in 0..self.nrows() {
+            let w = self.filled(r);
+            if w > 0 {
+                *freq.entry(w).or_default() += 1;
+            }
+        }
+        freq.iter()
+            .max_by_key(|(_, &n)| n)
+            .map(|(&w, _)| w)
+            .unwrap_or(0)
+    }
+
+    /// When the header is a lone title in its first cell above a wider table, the
+    /// 1-based file line of the first data row that reaches the table's width: where
+    /// the real header most likely sits.
+    pub fn title_as_header(&self) -> Option<usize> {
+        let header = self.header.as_ref()?;
+        let named: Vec<usize> = (0..header.len())
+            .filter(|&c| !header[c].is_empty())
+            .collect();
+        let body = self.body_width();
+        if named != [0] || body < 2 {
+            return None;
+        }
+        (0..self.nrows())
+            .find(|&r| self.filled(r) >= body)
+            .map(|r| r + 2)
+    }
+
+    /// The refusal for a bracketed name the header lacks, naming a match that differs
+    /// only in case.
+    pub fn unknown_column(&self, name: &str) -> String {
+        let folded = name.to_lowercase();
+        match self
+            .header
+            .iter()
+            .flatten()
+            .find(|h| h.to_lowercase() == folded)
+        {
+            Some(h) => {
+                format!("no column named [{name}] — names are case-sensitive: did you mean [{h}]?")
+            }
+            None => format!("no column named [{name}]"),
+        }
+    }
+
     /// Widen row `r` to at least `width` cells, filling with empties.
     ///
     /// Used when an assignment materializes a column: every row has to gain the field,

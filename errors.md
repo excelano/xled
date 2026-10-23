@@ -16,20 +16,19 @@ One template, filled differently per destination:
 
 The `<verb>` is load-bearing — it tells the user, in one word, what *kind* of dead end they hit and therefore where to go next:
 
-| Verb | Means | Goes to | Permanent? |
-|---|---|---|---|
-| not in **scope** | a different tool's job — query, not edit | xql / DuckDB | yes |
-| not **supported** | reshaping — changes the table's shape | upstream reshape, or in-place `s///` | yes |
-| not **recoverable** | the data was already destroyed before xled saw it | upstream re-export | yes |
-| not available **yet** | a real xled feature, still being designed | a later xled | no |
+| Verb | Means | Goes to |
+|---|---|---|
+| not in **scope** | a different tool's job — query, not edit | xql / DuckDB |
+| not **supported** | reshaping — changes the table's shape | upstream reshape, or in-place `s///` |
+| not **recoverable** | the data was already destroyed before xled saw it | upstream re-export |
 
-A fifth case is *not* a boundary and does not use this shape: a **correction**, where the user wrote a legal form that means something other than they intended. That gets a different voice — name what they wrote, name what it does, then give the form for what they meant:
+A further case is *not* a boundary and does not use this shape: a **correction**, where the user wrote a legal form that means something other than they intended. That gets a different voice — name what they wrote, name what it does, then give the form for what they meant:
 
 ```
 <what you wrote> <does X>; for <what you meant>, write <form>.
 ```
 
-Two rules keep the catalog honest. The version-number rule: "not available yet" never carries a release number, because we will not promise syntax we have not designed. It promises the direction, not a date. And the convert-on-ship rule (from the SP-rejection memo): transient wording is only for things genuinely in flight; the moment one ships, its error is deleted, and the moment one is ruled out forever, it moves up to a permanent verb.
+Every refusal is permanent. xled does not promise features in its errors: a capability is either refused with the place it lives, or the word is unknown until the capability ships. A promise in an error message outlives the plan behind it, and a reader cannot tell a live plan from an abandoned one.
 
 ---
 
@@ -134,16 +133,6 @@ in Excel before export. You can blank the marker — [total] s/^#\w+!?$//  — b
 number it should hold has to be recomputed at the source.
 ```
 
-### Not available yet → a later xled
-
-Real features still being designed against real cases, not boundaries. Transient wording, no version number (convert-on-ship rule), and a usable workaround so "not yet" is never a full stop.
-
-**Number formatting via `text()`.** The name is Excel's TEXT and the date half ships; the number half has its own token language and is a later slice. Reserving the name is the point — a real future capability should say "not yet", not "unknown function".
-```
-text() formats dates. Number formatting — thousands separators, currency, fixed
-decimals — is a later xled. For decimal places now: round([col], 2).
-```
-
 ### Corrections — legal form, unintended meaning
 
 Not boundaries; the user is inside the grammar but a step from a footgun. Name what they wrote, what it does, and the intended form. These already live as rules in `semantics.md` (10, 7, 6) and `composition-grammar.md` (6); this is their shared voice.
@@ -219,10 +208,8 @@ day(), or subtract two dates for a count of days.
 
 ---
 
-## Three refusals that are permanent
+## Refusals that are permanent
 
 1. **Column reorder is permanently "not supported"** (→ DuckDB). The invariant is *xled never reshapes the table*, and shape includes column *order*, not just row and column counts. Reorder is the camel's nose — "insert between" and "transpose" follow it — so order belongs to the file and the query engine; reordering for output is a one-line `SELECT`, and xled isn't an output formatter.
 
 2. **No bulk header transform in v1** (permanent, gentle). `rename` stays one-at-a-time; "lowercase all headers" is rejected rather than served by a new header *scope* that would let `s///` reach the name overlay. A header pseudo-address is real new grammar for a rare need. Revisit only if the Part C intake battery shows bulk header rewrites are common.
-
-3. **Every "not available yet" message ships a workaround.** A transient refusal without an escape hatch reads as a missing feature the user must wait on — the exact frustration the router thesis exists to kill. Costs one clause.

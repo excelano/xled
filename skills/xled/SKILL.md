@@ -76,7 +76,8 @@ xled --count '/retire/' portfolio.csv                         # rows matched, no
 the column comes out empty at exit 0, with a tally on stderr. Write `num([a]) * num([b])`.
 Comparisons are string-wise unless both sides are cast, so `"9" > "10"`. Do not `num()`
 an ID or zip you want to keep padded. Numbers are written at full precision, so wrap money
-in `round(…, 2)`.
+in `round(…, 2)`; `round` still writes `12.5`, so when the output must read `12.50`, use
+`fixed(…, 2, true)` (Excel's `FIXED`, whose default adds thousands separators).
 
 **Dates.** A bare `date([col])` reads ISO only; a non-ISO value halts and names the
 layouts that would read it. Spell the layout out: `date([col], "DD/MM/YYYY")`.

@@ -2,7 +2,7 @@
 //!
 //! Boundary refusals carry their full catalog message verbatim (the messages in
 //! errors.md are self-contained), so Display prints them as-is. Parse/Io get a short
-//! prefix. The four refusal verbs map to the four permanent/transient destinations.
+//! prefix. Each refusal verb names a permanent destination.
 
 use std::fmt;
 
@@ -18,8 +18,6 @@ pub enum XledError {
     NotSupported(String),
     /// the data was destroyed before xled saw it → upstream re-export
     NotRecoverable(String),
-    /// a real xled feature, still being designed → a later xled
-    NotAvailableYet(String),
     /// legal form, unintended meaning — name what they wrote, then the intended form
     Correction(String),
 }
@@ -32,7 +30,6 @@ impl fmt::Display for XledError {
             XledError::NotInScope(m)
             | XledError::NotSupported(m)
             | XledError::NotRecoverable(m)
-            | XledError::NotAvailableYet(m)
             | XledError::Correction(m) => write!(f, "{m}"),
         }
     }

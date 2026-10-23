@@ -178,10 +178,9 @@ fn a_missing_cast_halts_with_the_corrected_form() {
 }
 
 #[test]
-fn text_on_a_number_says_not_yet_rather_than_unknown() {
+fn text_on_a_number_points_at_fixed() {
     let e = err(ISO, r#"[out] = text(1234.5, "0.00")"#);
-    assert!(e.contains("later xled"), "{e}");
-    assert!(e.contains("round("), "it points at what exists today: {e}");
+    assert!(e.contains("fixed([col], 2, true)"), "{e}");
 }
 
 #[test]

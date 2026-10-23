@@ -123,6 +123,7 @@ Numbers:
 | Signature | Returns |
 |---|---|
 | `round(x, d)` | round `x` to `d` decimals (use for money — xled never rounds on write) |
+| `fixed(x, [d], [no_commas])` | Excel's `FIXED`: text of `x` rounded as `round` does, with `d` decimals (default 2; negative rounds left of the point) and thousands separators unless `no_commas` is true. `fixed(1234.5, 2, true)` is `1234.50`, `fixed(1234.5)` is `1,234.50`. For a currency symbol, concatenate: `"$" & fixed([amt], 2)` |
 | `abs(x)` / `floor(x)` / `ceil(x)` | absolute value / floor / ceiling |
 | `mod(a, b)` | remainder taking the **dividend's sign** (`mod(-3, 5)` = `-3`, awk not Excel); `b == 0` leaves the cell and tallies |
 | `min(x, …)` / `max(x, …)` | variadic, numeric-only; at least one argument |
@@ -158,7 +159,7 @@ Dates (a real type; always serialized ISO 8601):
 |---|---|
 | `date(s)` | parse **ISO only** — `2024-03-04`, the basic form `20240304`, or either with a time, truncated to the date |
 | `date(s, fmt)` | parse under exactly `fmt` |
-| `text(d, fmt)` | render a date under `fmt`; on a number it reports "not yet" and points at `round()` |
+| `text(d, fmt)` | render a date under `fmt`; on a number it refuses and points at `fixed()` |
 | `year(d)` / `month(d)` / `day(d)` | component as a number |
 | `weekday(d)` | **ISO** day of week — 1 = Monday … 7 = Sunday, *not* Excel's 1 = Sunday |
 | `today()` | the date the run started, fixed once for the whole run |
@@ -213,8 +214,8 @@ rows at the edges.
 
 ## Error vocabulary
 
-Refusals come in four voices, each with a correction rather than a bare failure:
-**not-in-scope** (e.g. a multi-predicate filter → use SQL), **not-supported**,
-**not-recoverable**, and **not-available-yet**. A scope-contract violation (a partial
-`del`, a multi-column `=`) and the combinator wall (`and`/`or`) route here with the
-right form named.
+Each refusal names where the capability lives rather than failing bare:
+**not-in-scope** (a query, such as a multi-predicate filter → SQL), **not-supported**
+(a reshape → xshape or upstream), and **not-recoverable** (data destroyed before xled saw
+it → re-export). A scope-contract violation (a partial `del`, a multi-column `=`) and the
+combinator wall (`and`/`or`) route here with the right form named.

@@ -245,8 +245,27 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
             want(2)?;
             let x = cast_num(&eval(buf, row, &args[0])?)?;
             let d = arg_usize(buf, row, &args[1])?;
-            let f = 10f64.powi(d as i32);
-            Ok(Value::Num((x * f).round() / f))
+            Ok(Value::Num(round_to(x, d as i32)))
+        }
+        // Excel's FIXED, signature and defaults included: two decimals unless told, a
+        // negative count rounds left of the point, and thousands separators unless the
+        // third argument is true.
+        "fixed" => {
+            if !(1..=3).contains(&argc) {
+                return Err(EvalErr::Hard(XledError::Correction(
+                    "fixed() takes 1 to 3 arguments (number, [decimals], [no_commas])".into(),
+                )));
+            }
+            let x = cast_num(&eval(buf, row, &args[0])?)?;
+            let d = match args.get(1) {
+                Some(e) => cast_num(&eval(buf, row, e)?)?.trunc() as i32,
+                None => 2,
+            };
+            let no_commas = match args.get(2) {
+                Some(e) => cast_bool(&eval(buf, row, e)?)?,
+                None => false,
+            };
+            Ok(Value::Str(fixed(x, d, no_commas)))
         }
         "default" => {
             want(2)?;
@@ -465,10 +484,9 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
             let fmt = eval(buf, row, &args[1])?.as_string();
             match v {
                 Value::Date(d) => Ok(Value::Str(date::render(d, &fmt))),
-                Value::Num(_) => Err(EvalErr::Hard(XledError::NotAvailableYet(
-                    "text() formats dates. Number formatting — thousands separators, \
-                     currency, fixed decimals — is a later xled. For decimal places now: \
-                     round([col], 2)."
+                Value::Num(_) => Err(EvalErr::Hard(XledError::Correction(
+                    "text() formats dates. To format a number, use fixed(): \
+                     fixed([col], 2, true) gives 1234.50, fixed([col], 2) gives 1,234.50."
                         .into(),
                 ))),
                 _ => Err(EvalErr::Hard(XledError::Correction(
@@ -534,6 +552,49 @@ fn eval_call(buf: &Buffer, row: usize, name: &str, args: &[Expr]) -> Result<Valu
             "unknown function {other}()"
         )))),
     }
+}
+
+/// Round half away from zero to `d` decimals; a negative `d` rounds left of the point.
+/// A value too large to have digits at that position is returned whole, since scaling it
+/// would only add float error. A result of zero is 0, never -0.
+fn round_to(x: f64, d: i32) -> f64 {
+    let f = 10f64.powi(d);
+    let scaled = x * f;
+    if scaled.abs() >= 2f64.powi(53) {
+        return x;
+    }
+    let rounded = scaled.round() / f;
+    if rounded == 0.0 {
+        0.0
+    } else {
+        rounded
+    }
+}
+
+/// `fixed()`'s text: `x` rounded as `round` does, written with `max(d, 0)` decimals, and
+/// with thousands separators unless `no_commas`.
+fn fixed(x: f64, d: i32, no_commas: bool) -> String {
+    let rounded = round_to(x, d);
+    let text = format!("{rounded:.*}", d.max(0) as usize);
+    if no_commas {
+        return text;
+    }
+    let (sign, unsigned) = match text.strip_prefix('-') {
+        Some(rest) => ("-", rest),
+        None => ("", text.as_str()),
+    };
+    let (int, frac) = match unsigned.find('.') {
+        Some(i) => unsigned.split_at(i),
+        None => (unsigned, ""),
+    };
+    let mut grouped = String::new();
+    for (i, digit) in int.chars().enumerate() {
+        if i > 0 && (int.len() - i) % 3 == 0 {
+            grouped.push(',');
+        }
+        grouped.push(digit);
+    }
+    format!("{sign}{grouped}{frac}")
 }
 
 /// Title-case (`proper`): the first letter of each run of letters is uppercased, the rest

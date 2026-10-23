@@ -257,9 +257,10 @@ future change doesn't quietly undo one.
    rather than a token that would have to be retrofitted.
 
 3. **`y/set/set/` and `append` are reserved, not granted a production.** Transliterate is deferred
-   (`semantics.md`) and row-`append` is not available yet (`errors.md`). They are named in the
-   reserved space so a later addition slots in without collision; committing syntax now would violate
-   the no-syntax-we-haven't-designed rule. Their *absence* from the grammar is intentional.
+   (`semantics.md`), so `y` is held so a later addition slots in without collision; committing syntax
+   now would violate the no-syntax-we-haven't-designed rule. Row-`append` is out of scope
+   (`errors.md`), and its word is reserved so the refusal can name where rows are generated. Their
+   *absence* from the grammar is intentional.
 
 ---
 

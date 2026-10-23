@@ -321,3 +321,48 @@ fn a_set_addresses_rows() {
     exec::run(&mut buf, &p).unwrap();
     assert_eq!(io::serialize(&buf), "org\nAPPLE\nSCAM\nRRD\n");
 }
+
+// --- fixed: Excel's FIXED --------------------------------------------------
+
+fn column(b: &Buffer, name: &str) -> Vec<String> {
+    let c = b.name_to_col(name).unwrap();
+    (0..b.nrows()).map(|r| b.cell(r, c).to_string()).collect()
+}
+
+const AMOUNTS: &str = "a\n1234.5\n3\n-1234567.891\n2.675\n-0.001\n";
+
+#[test]
+fn fixed_defaults_to_two_decimals_with_thousands_separators() {
+    let b = run(AMOUNTS, "[f] = fixed([a])");
+    assert_eq!(
+        column(&b, "f"),
+        ["1,234.50", "3.00", "-1,234,567.89", "2.68", "0.00"]
+    );
+}
+
+#[test]
+fn fixed_without_commas_is_plain_fixed_decimals() {
+    let b = run(AMOUNTS, "[f] = fixed([a], 2, true)");
+    assert_eq!(
+        column(&b, "f"),
+        ["1234.50", "3.00", "-1234567.89", "2.68", "0.00"]
+    );
+}
+
+#[test]
+fn fixed_with_negative_decimals_rounds_left_of_the_point() {
+    let b = run(AMOUNTS, "[f] = fixed([a], -2)");
+    assert_eq!(column(&b, "f"), ["1,200", "0", "-1,234,600", "0", "0"]);
+}
+
+#[test]
+fn fixed_skips_a_value_that_is_not_a_number() {
+    let n = notices("a\nx\n", "[f] = fixed([a])");
+    assert_eq!(n.len(), 1, "{n:?}");
+}
+
+#[test]
+fn round_never_gives_negative_zero_or_float_noise_on_large_values() {
+    let b = run("a\n-0.001\n1e21\n", "[r] = round(num([a]), 2)");
+    assert_eq!(column(&b, "r"), ["0", "1000000000000000000000"]);
+}

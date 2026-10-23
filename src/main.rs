@@ -31,7 +31,7 @@ Exit codes:
 #[derive(ClapParser)]
 #[command(
     name = "xled",
-    version,
+    version = skill::version(),
     about = "sed and awk for tabular data",
     after_help = EXIT_CODES
 )]

@@ -54,3 +54,16 @@ fn a_blank_index_header_cell_is_not_a_title() {
     let buf = io::read_str(",a,b\n0,1,2\n1,3,4\n", b',', true).unwrap();
     assert_eq!(buf.title_as_header(), None);
 }
+
+#[test]
+fn a_first_line_holding_another_delimiter_is_a_misread_not_a_title() {
+    let buf = io::read_str("id;name;amount\n007;ann;1.200,50\n", b',', true).unwrap();
+    assert_eq!(buf.misread_delimiter(), Some(';'));
+    assert_eq!(buf.title_as_header(), None);
+}
+
+#[test]
+fn a_comma_file_read_with_its_own_delimiter_is_not_misread() {
+    let buf = io::read_str("Report title\nid,name\n1,a\n", b',', false).unwrap();
+    assert_eq!(buf.misread_delimiter(), None);
+}

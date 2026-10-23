@@ -95,6 +95,13 @@ pub fn read_str(data: &str, delim: u8, has_header: bool) -> Result<Buffer> {
         edits: Edits::default(),
         layout,
     };
+    if let Some(d) = buf.misread_delimiter() {
+        eprintln!(
+            "xled: warning: the first line is one field containing {d:?}, so the file is \
+             probably {d:?}-delimited; rerun with -d '{}'.",
+            d.escape_default()
+        );
+    }
     if let Some(line) = buf.title_as_header() {
         eprintln!(
             "xled: warning: row 1 looks like a title, not a header, so every row address \

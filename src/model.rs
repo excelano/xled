@@ -126,6 +126,9 @@ impl Buffer {
     /// 1-based file line of the first data row that reaches the table's width: where
     /// the real header most likely sits.
     pub fn title_as_header(&self) -> Option<usize> {
+        if self.misread_delimiter().is_some() {
+            return None;
+        }
         let header = self.header.as_ref()?;
         let named: Vec<usize> = (0..header.len())
             .filter(|&c| !header[c].is_empty())
@@ -137,6 +140,18 @@ impl Buffer {
         (0..self.nrows())
             .find(|&r| self.filled(r) >= body)
             .map(|r| r + 2)
+    }
+
+    /// A delimiter other than this buffer's that the first line, read as one field,
+    /// contains: the sign of a file read with the wrong `-d`.
+    pub fn misread_delimiter(&self) -> Option<char> {
+        let first = self.header.as_ref().or(self.rows.first())?;
+        let [only] = first.as_slice() else {
+            return None;
+        };
+        [';', '\t', '|', ',']
+            .into_iter()
+            .find(|&c| c != self.delim as char && only.contains(c))
     }
 
     /// The refusal for a bracketed name the header lacks, naming a match that differs

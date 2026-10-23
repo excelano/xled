@@ -29,7 +29,7 @@ A fifth case is *not* a boundary and does not use this shape: a **correction**, 
 <what you wrote> <does X>; for <what you meant>, write <form>.
 ```
 
-Two rules keep the catalog honest. The version-number rule: "not available yet" never carries a release number, because we will not promise syntax we have not designed (`append`, `undo`). It promises the direction, not a date. And the convert-on-ship rule (from the SP-rejection memo): transient wording is only for things genuinely in flight; the moment one ships, its error is deleted, and the moment one is ruled out forever, it moves up to a permanent verb.
+Two rules keep the catalog honest. The version-number rule: "not available yet" never carries a release number, because we will not promise syntax we have not designed. It promises the direction, not a date. And the convert-on-ship rule (from the SP-rejection memo): transient wording is only for things genuinely in flight; the moment one ships, its error is deleted, and the moment one is ruled out forever, it moves up to a permanent verb.
 
 ---
 
@@ -66,6 +66,13 @@ duckdb -c "FROM file.csv SELECT dept, sum(cost) GROUP BY dept".
 joining tables is not in xled's scope: xled holds one buffer and never matches
 rows across files. Join upstream, then scrub the result here —
 duckdb -c "FROM a.csv JOIN b.csv USING (id)" | xled '…'.
+```
+
+**Append a row.** xled edits the rows a table has; generating rows changes the row set, which is the query engine's side of the line.
+```
+appending a row is not in xled's scope: xled edits the rows a table has and never
+generates new ones. Append upstream — printf 'a,b,c\n' >> file.csv — or build
+the rows in the query engine: duckdb -c "FROM a.csv UNION ALL FROM b.csv".
 ```
 
 ### Reshaping → upstream, or `s///` in place
@@ -129,20 +136,7 @@ number it should hold has to be recomputed at the source.
 
 ### Not available yet → a later xled
 
-Real features still being designed against real cases, not boundaries. Transient wording, no version number (convert-on-ship rule). Both below carry a usable workaround so "not yet" is never a full stop.
-
-**Append a row.** The one structural op assignment doesn't cover — assignment creates columns, not rows. Deferred to design from battery evidence (`semantics.md`, "Still open") — appending a record or a computed totals row are the plausible shapes, so it is in flight rather than refused forever.
-```
-appending a row is not available yet: xled edits existing rows; row generation is
-still being designed against real cases. For now append upstream —
-printf 'a,b,c\n' >> file.csv — then reopen.
-```
-
-**Undo.** Leans in; lands in the implementation phase (ed had `u`, the buffer is live).
-```
-undo is not available yet: the buffer is mutable and reopening the file is the
-current reset. Save in stages so you can reload a known-good state — undo is planned.
-```
+Real features still being designed against real cases, not boundaries. Transient wording, no version number (convert-on-ship rule), and a usable workaround so "not yet" is never a full stop.
 
 **Number formatting via `text()`.** The name is Excel's TEXT and the date half ships; the number half has its own token language and is a later slice. Reserving the name is the point — a real future capability should say "not yet", not "unknown function".
 ```
@@ -231,4 +225,4 @@ day(), or subtract two dates for a count of days.
 
 2. **No bulk header transform in v1** (permanent, gentle). `rename` stays one-at-a-time; "lowercase all headers" is rejected rather than served by a new header *scope* that would let `s///` reach the name overlay. A header pseudo-address is real new grammar for a rare need. Revisit only if the Part C intake battery shows bulk header rewrites are common.
 
-3. **Every "not available yet" message ships a workaround.** A transient refusal without an escape hatch reads as a missing feature the user must wait on — the exact frustration the router thesis exists to kill. Costs one clause. `append` and `undo` both carry one.
+3. **Every "not available yet" message ships a workaround.** A transient refusal without an escape hatch reads as a missing feature the user must wait on — the exact frustration the router thesis exists to kill. Costs one clause.

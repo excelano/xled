@@ -103,10 +103,20 @@ fn check_columns_in_range(buf: &Buffer, spec: &xaddr::Spec) -> Result<()> {
         if idx >= ncols {
             let wrote = xaddr::col_to_letter(idx);
             let widest = xaddr::col_to_letter(ncols.saturating_sub(1));
+            let folded = wrote.to_lowercase();
+            let name_hint = match buf
+                .header
+                .iter()
+                .flatten()
+                .find(|h| h.to_lowercase() == folded)
+            {
+                Some(h) => format!("to address the column named {h}, write [{h}]"),
+                None => "if it is a column name, write it in brackets".to_string(),
+            };
             return Err(XledError::Correction(format!(
                 "column {wrote} is past this table's {ncols} columns (A-{widest}). \
                  A bare word is read as column letters, so if {wrote} was meant as a command \
-                 there is no such command — see --help; if it is a column name, write [{wrote}]."
+                 there is no such command — see --help; {name_hint}."
             )));
         }
     }

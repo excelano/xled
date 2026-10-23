@@ -224,7 +224,7 @@ fn a_catalogued_verb_is_refused_by_name_not_read_as_a_column() {
         ("aggregate", "never a value across rows"),
         ("split", "never widens the table"),
         ("unpivot", "changes the table's shape"),
-        ("append", "not available yet"),
+        ("append", "never generates new ones"),
     ] {
         let err = parser::parse_program(verb)
             .err()
@@ -247,7 +247,10 @@ fn a_lone_column_past_the_width_is_an_error_not_an_empty_selection() {
         err.contains("past this table's"),
         "unexpected message: {err}"
     );
-    assert!(err.contains("[PIVOT]"), "no correction offered: {err}");
+    assert!(
+        err.contains("write it in brackets"),
+        "no correction offered: {err}"
+    );
 }
 
 #[test]

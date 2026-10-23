@@ -82,10 +82,10 @@ fn refusal(word: &str) -> Option<XledError> {
              xled never does. Reshape in the query engine — duckdb -c \"UNPIVOT file.csv …\"."
                 .into(),
         ),
-        "append" => XledError::NotAvailableYet(
-            "appending a row is not available yet: xled edits existing rows; row generation is \
-             still being designed against real cases. For now append upstream — \
-             printf 'a,b,c\\n' >> file.csv — then reopen."
+        "append" => XledError::NotInScope(
+            "appending a row is not in xled's scope: xled edits the rows a table has and never \
+             generates new ones. Append upstream — printf 'a,b,c\\n' >> file.csv — or build \
+             the rows in the query engine: duckdb -c \"FROM a.csv UNION ALL FROM b.csv\"."
                 .into(),
         ),
         _ => return None,

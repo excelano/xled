@@ -10,7 +10,7 @@ For each item: write the `address command` form, then judge it on three axes.
 2. **Forces a decision?** Items tagged `⚑decision` can't be expressed until an open grammar question is settled. Settle it here, against real shapes, not in the abstract.
 3. **Becomes a test?** Every item is `fixture + command → expected output`. The "today" column (the sed/awk/Excel equivalent) is the oracle: xled's output should match what that pipeline produces. When an item has a concrete `before → after`, that pair *is* the unit test.
 
-Fixtures are in `fixtures/`. Check an item when its syntax is decided *and* it reads natural; the `⚑decision` tags map to the open questions in `DESIGN.md`. Scale-only cases (very wide / very deep) are validated against the real corpus, which never enters this repo.
+Fixtures are in `fixtures/`. Check an item when its syntax is decided *and* it reads natural; the `⚑decision` tags mark items that settled a design question. Scale-only cases (very wide / very deep) are validated against the real corpus, which never enters this repo.
 
 Legend: `⚑decision` = blocked on an open grammar call · `⚐boundary` = tests whether the in/out-of-scope line holds · `≈today` = the muscle-memory oracle.
 
@@ -60,8 +60,8 @@ Filter-as-scope is in; filter-as-query is out. One comparison is the knife-edge.
 - [ ] Add a new column by assigning to the next letter/name (`E = num([price]) * 1.1` on a 4-col file). (`products`) — does assigning past the width *create*?
 - [ ] Apply one scrub across non-contiguous columns `[price],[sku]`. (`products`)
 - [ ] Delete row 3 vs delete column `[dept]` vs delete column `C` — do `3 d`, `[dept] d`, `C d` disambiguate by address type alone? (`ragged`)
-- [ ] Append a row of values. (`products`)
-- **Pass:** create/delete/append all reachable; row-vs-column intent is unambiguous from the address.
+- [ ] Append a row of values. (`products`) — refused as out of scope, naming the upstream route.
+- **Pass:** create and delete reachable, append refused with a handoff; row-vs-column intent is unambiguous from the address.
 
 ## A7. Bracket edges and the three case rules  `⚑decision`
 - [ ] Address a header that itself contains `]`, e.g. `notes [draft]`. — escape rule inside brackets?

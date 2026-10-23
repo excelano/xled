@@ -67,3 +67,12 @@ fn a_comma_file_read_with_its_own_delimiter_is_not_misread() {
     let buf = io::read_str("Report title\nid,name\n1,a\n", b',', false).unwrap();
     assert_eq!(buf.misread_delimiter(), None);
 }
+
+#[test]
+fn a_bare_header_name_is_pointed_at_its_bracketed_form() {
+    let msg = error("id,price\n1,$5\n", "price s/x/y/");
+    assert!(
+        msg.ends_with("to address the column named price, write [price]."),
+        "{msg}"
+    );
+}

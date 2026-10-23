@@ -38,7 +38,7 @@ Two kinds, lexically distinct from reference atoms so the space-intersection ope
 
 - `sort` — **rejected by design**: `[col] sort` errors and points at `sort`/DuckDB (reshaping toward query). The message is written in `errors.md` (out-of-scope → query engine).
 - `y/set/set/` (transliterate) — **deferred**: niche; `s///` with alternation covers the common smart-punctuation case. Revisit only if a real need appears.
-- **Row insert/append** — the one structural gap with no clean home yet (assignment creates *columns*, not rows). Flagged open below.
+- **Row insert/append** — **rejected by design**: generating rows changes the row set, which is the query engine's side of the line. The refusal is in `errors.md` (out-of-scope → upstream or the query engine).
 
 ## Execution semantics
 
@@ -68,7 +68,3 @@ Two kinds, lexically distinct from reference atoms so the space-intersection ope
 - **`rename` takes rest-of-line** so spaced/sla­shed/parenthesized headers are nameable.
 - **`fill` is down-only in v1.** Merged-header case → rename-by-letter, not across-fill (taxonomy updated to match).
 - **Cast failure stays lenient + tally**. Strict-halt is a later opt-in.
-
-## Still open — row insert/append
-
-The only structural operation assignment doesn't cover, since assignment creates *columns*, not rows. xled edits existing rows; row *generation* leans upstream. The syntax is deliberately undesigned rather than guessed: if the conformance battery shows a real need more than once (appending a record, a computed totals row), `append` gets designed against those actual shapes. Until then a row-append attempt gets the transient "not available yet" refusal in `errors.md`, with the `printf … >> file.csv` workaround, rather than a permanent rejection.

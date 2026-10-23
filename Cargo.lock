@@ -750,7 +750,7 @@ checksum = "4573aaeb9b492c539fbd893a11a2c2455a78f4e677e892e18f63ff563922985f"
 
 [[package]]
 name = "xled"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "chrono",
  "clap",

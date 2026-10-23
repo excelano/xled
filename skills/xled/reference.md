@@ -22,7 +22,7 @@ xled [FLAGS] FILE                  # REPL (script omitted, stdin is a terminal)
 | `--raw` | value-only output: no header row, no CSV quoting, one addressed value per line. Applies to inspect scripts (a bare address or `show`); ignored on a mutation |
 | `--number` | prefix each output row with its logical 1-based row number (stays correct across cells that contain embedded newlines, which line-based tools miscount). Inspect scripts only |
 | `--count` | print how many rows the address selected instead of the cells — `grep -c` for an address. Rows, de-duplicated: a match spanning three columns of one row counts once. Correct where `wc -l` is not, since a cell containing a newline makes a line counter overcount. No match is `0` at exit 0. Refuses to combine with `--raw` or `--number`. Inspect scripts only |
-| `--no-header` | treat row 1 as data, not a header — use when the real header sits under a title block, so row numbers match the file and you can `crop` then `header N` |
+| `--no-header` | treat row 1 as data, not a header — use when the real header sits under a title block, so row numbers match the file and you can `crop` then promote with `N header` |
 | `-V`, `--version` / `-h`, `--help` | standard |
 
 **Exit codes.** `0` success, including a script that matched nothing or skipped a
@@ -74,7 +74,7 @@ empty selection. Disambiguation notes: the column
 | `= expr` | compute into **exactly one** column; creates it (appended at the current width) if the name is new. Refuses a multi-column address |
 | `del` | delete **whole rows xor whole columns** — never a partial rectangle |
 | `crop` | reduce the buffer to the single addressed rectangle (carve a table out of surrounding junk) |
-| `header N` | promote row N to be the column-name header |
+| `N header` | promote row N to be the column-name header |
 | `rename <newname>` | rename the addressed header in place; takes the rest of the line literally (no quoting). One row or one column |
 | `fill` / `fill down` | fill blank addressed cells from the value above (merged-cell artifacts) |
 | `drop blanks [rows\|cols]` | trim empty edge rows and/or columns |

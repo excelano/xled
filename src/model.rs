@@ -1,7 +1,10 @@
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
+
 //! The buffer: the in-memory table xled edits in place.
 //!
 //! Stringly-typed (`Vec<Vec<String>>`) so leading zeros and long IDs survive untouched.
-//! The header is an overlay (name→column), promotable from any row via `header N`; it is
+//! The header is an overlay (name→column), promotable from any row via `N header`; it is
 //! kept separate from the data rows. Ragged rows are tolerated: a missing cell reads as "".
 
 /// Column-letter ↔ index is bijective base-26: A=0, Z=25, AA=26, …

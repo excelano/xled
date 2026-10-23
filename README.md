@@ -160,7 +160,7 @@ The last two rows are the same kind of atom: a test evaluated per row, selecting
 | `= expr` | compute a value into one column, creating it if new |
 | `del` | delete whole rows or whole columns |
 | `crop` | reduce the buffer to one rectangle (carve a table out of junk) |
-| `header N` | promote row N to the column-name header |
+| `N header` | promote row N to the column-name header |
 | `rename newname` | rename a header in place (takes the rest of the line, no quoting needed) |
 | `fill` / `fill down` | fill blank cells from the value above (merged-cell artifacts) |
 | `drop blanks [rows\|cols]` | trim empty edge rows and columns |

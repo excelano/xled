@@ -27,9 +27,9 @@ with quoting inside a bash string, `--diff` lists every changed cell with its ol
 value, and xled refuses to guess an ambiguous date layout.
 
 Hand off when the task changes something other than cell values. Unpivot, pivot,
-transpose, split a column, explode a delimited cell or merge columns is **xshape**. Join,
-group, aggregate, sort, dedupe or filtering rows out of the result is **xql** (or
-sqlite3/DuckDB). On an unfamiliar file, run **xray** first; it reports a buried header
+transpose, split a column, explode a delimited cell or merge columns is **xshape**. Group,
+aggregate, sort, dedupe or filtering rows out of the result is **xql**; a join, which
+needs a second table, is sqlite3's or DuckDB's. On an unfamiliar file, run **xray** first; it reports a buried header
 and names the step to take.
 
 ## Buried headers need `--no-header`

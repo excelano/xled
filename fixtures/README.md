@@ -2,11 +2,11 @@
 
 Synthetic CSV/DSV files for hammering the address grammar and transform syntax until the right form becomes obvious. David brings real client CSVs alongside these; together they span the scenario space.
 
-Guiding principle (from the design): xled has to leverage sed/awk/Excel muscle memory so it reads as the obviously-right tool on first contact. So each fixture below is paired with how the task is solved *today*. We design xled syntax to sit right next to that established pattern — close enough that fluency transfers, departing only where the departure reads instantly (column letters, header names, A1 ranges).
+Guiding principle (from the design): xled builds on sed/awk/Excel muscle memory so it reads as the obviously-right tool on first contact. So each fixture below is paired with how the task is solved without it. xled's syntax sits right next to that established pattern — close enough that fluency transfers, departing only where the departure reads instantly (column letters, header names, A1 ranges).
 
 ## The fixtures
 
-| File | Shape | What it stresses | How it's done today |
+| File | Shape | What it stresses | How it's done without xled |
 |---|---|---|---|
 | `products.csv` | clean, 4 cols | baseline addressing — column by name (`price`) and letter (`C`), row ranges (`2:4`), A1 rectangles (`B2:C3`) | awk `$3`, Excel `C2:C9` |
 | `app-portfolio.csv` | messy, domain (APM) | the realistic multi-task file: `$`/comma currency, status casing (`Active`/`active`/`IN USE`), mixed dates, trailing spaces, empty cell | a pile of `sed` substitutes + manual Excel find/replace |
@@ -37,4 +37,4 @@ A second set in `messy/`, distilled from a real 16-file `.xlsx` corpus (validati
 
 ## Operations battery
 
-Moved to `../proving-ground.md`, which is the single battery now: Part A drives the adversarial cases against the grammar's seams (the disambiguations, ragged rows, embedded newlines, header collisions these fixtures are rigged to force), and Part B is the comprehensive in-scope list of every regex-over-tabular operation. Each item there cites the fixture it runs against and doubles as a unit-test spec.
+`../proving-ground.md` is the single battery: Part A drives the adversarial cases against the grammar's seams (the disambiguations, ragged rows, embedded newlines, header collisions these fixtures are rigged to force), and Part B is the comprehensive in-scope list of every regex-over-tabular operation. Each item there cites the fixture it runs against and doubles as a unit-test spec.

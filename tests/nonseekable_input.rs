@@ -4,6 +4,9 @@
 //! because the encoding sniff opened the path, drained it, and the real read then
 //! opened a second time. Process-level tests: only a spawned binary can be handed
 //! a FIFO path or a piped `/dev/stdin`. See issue #22.
+//
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
 
 #![cfg(unix)]
 

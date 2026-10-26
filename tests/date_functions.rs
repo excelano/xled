@@ -6,6 +6,9 @@
 //! The tests that matter most here are not the happy paths but the two refusals: xled never
 //! guesses DD/MM versus MM/DD, and it sorts a bad *value* (skip the cell, tally) from a bad
 //! *program* (halt once) rather than treating every failure the same way.
+//
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
 
 use xled::{exec, io, parser, Buffer};
 

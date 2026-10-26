@@ -1,5 +1,8 @@
 //! Slice 4 conformance: Part B11 (structural edits) + Part C (structural intake).
 //! Intake fixtures are read header-less — the real header isn't row 1.
+//
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
 
 use xled::{exec, io, parser, Buffer};
 

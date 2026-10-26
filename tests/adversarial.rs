@@ -2,6 +2,9 @@
 //! don't drive at: composition (A1), header addressing (A4), bracket/case rules (A7),
 //! ragged rows (A8), negation (A9), coordinate-named columns (A12), default scope (A13).
 //! Each case is `fixture + command → expected output (or value)`.
+//
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
 
 use xled::{exec, io, parser, Buffer};
 

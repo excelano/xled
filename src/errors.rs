@@ -3,6 +3,9 @@
 //! Boundary refusals carry their full catalog message verbatim (the messages in
 //! errors.md are self-contained), so Display prints them as-is. Parse/Io get a short
 //! prefix. Each refusal verb names a permanent destination.
+//
+// Author: David M. Anderson
+// Built with AI assistance (Claude, Anthropic)
 
 use std::fmt;
 

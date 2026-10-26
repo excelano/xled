@@ -25,4 +25,4 @@ Every GitHub release includes a `.sha256` file next to each archive listing its 
     sha256sum xled-x86_64-unknown-linux-gnu.tar.xz
     # compare against the value in xled-x86_64-unknown-linux-gnu.tar.xz.sha256
 
-Release artifacts are built by GitHub Actions from a tagged commit using the cargo-dist configuration in this repo (`dist-workspace.toml` and the generated `.github/workflows/release.yml`). The workflow and build configuration are public and auditable.
+Release artifacts are built by `build-release`, the release program in excelano/shipping, from a tagged commit using the cargo-dist configuration in this repository (`dist-workspace.toml`). That build configuration is public and auditable.

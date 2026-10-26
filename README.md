@@ -16,11 +16,11 @@ xled '[total] = round(num([price]) * 1.0825, 2)' products.csv
 
 Spreadsheets that arrive as CSV are full of small, repetitive damage: a dollar sign glued to every number, a leading apostrophe, inconsistent casing, a column that should be split, a header buried under three title rows. The reach for these is usually a throwaway pandas script or a fragile `awk -F,` one-liner that mishandles the first quoted comma. xled is the tool in between: faithful CSV parsing, two-dimensional addressing that matches how you already think about a sheet, and a transform vocabulary small enough to keep in your head.
 
-It is deliberately not a query engine. xled rewrites cells and reshapes nothing — it never adds or removes rows behind your back, never reorders columns, never coerces a value you didn't ask it to. Join, group, aggregate, and multi-predicate query belong to SQL; xled hands those off to [xql](https://github.com/excelano/xql) rather than growing into them.
+It is deliberately not a query engine. xled rewrites cells and reshapes nothing — it never adds or removes rows behind your back, never reorders columns, never coerces a value you didn't ask it to. Group, aggregate, and multi-predicate query belong to [xql](https://github.com/excelano/xql), and a join, which needs a second table, to a full SQL engine; xled hands those off rather than growing into them.
 
 ## Install
 
-Every install line below ends with `xled --install-skill`. That installs the [Claude Code skill](#use-it-from-claude-code) alongside the binary, which is the one step people reliably skipped when it lived further down the page. Drop it if you do not use Claude Code — the CLI itself does not need it.
+Every install line below ends with `xled --install-skill`. That installs the [Claude Code skill](#use-it-from-claude-code) alongside the binary. Drop it if you do not use Claude Code — the CLI itself does not need it.
 
 ### Debian and Ubuntu
 
@@ -72,7 +72,7 @@ cargo install xled && xled --install-skill
 
 ### Build from source
 
-xled requires only a Rust toolchain. Four pure-Rust crates carry the load (`regex`, `csv`, `clap`, `rustyline`); there are no C dependencies and no runtime.
+xled requires only a Rust toolchain. Its dependencies are pure Rust; there are no C dependencies and no runtime.
 
 ```sh
 cd xled
@@ -242,11 +242,11 @@ Subtracting two dates gives a number of days; adding or subtracting a number giv
 
 ## Input encoding
 
-xled expects UTF-8. An Excel "Save as CSV UTF-8" BOM at the start of the file is stripped so the first column header is not prefixed with it. If the file looks like UTF-7 (the `+ACI-` escape that Scoutbook exports emit) or carries a UTF-16 BOM, xled prints a warning at startup with the `iconv` command needed to convert it to UTF-8 first. UTF-16 fails the underlying read; the warning lets you fix the file instead of staring at a "stream did not contain valid UTF-8" error.
+xled expects UTF-8. An Excel "Save as CSV UTF-8" BOM at the start of the file is kept out of the first column header and written back on output. If the file looks like UTF-7 (the `+ACI-` escape that Scoutbook exports emit) or carries a UTF-16 BOM, xled prints a warning at startup with the `iconv` command needed to convert it to UTF-8 first. UTF-16 fails the underlying read; the warning lets you fix the file instead of staring at a "stream did not contain valid UTF-8" error.
 
 ## What xled does not do
 
-Query, join, aggregate, group, and sort are out of scope — that is [xql](https://github.com/excelano/xql) and DuckDB territory, and xled's error messages point you there by name. Reshaping is also out, and has its own tool: splitting one cell into several columns, unpivoting a wide export, pivoting, exploding a delimited cell, transposing a sideways table, merging columns — all of that is [xshape](https://github.com/excelano/xshape). xled carves *a* rectangle and rewrites cells within the table's existing shape; it is not a splitter and not a spreadsheet.
+Query, aggregate, group, and sort are out of scope — that is [xql](https://github.com/excelano/xql) territory, and a join is a full SQL engine's — and xled's error messages point you there by name. Reshaping is also out, and has its own tool: splitting one cell into several columns, unpivoting a wide export, pivoting, exploding a delimited cell, transposing a sideways table, merging columns — all of that is [xshape](https://github.com/excelano/xshape). xled carves *a* rectangle and rewrites cells within the table's existing shape; it is not a splitter and not a spreadsheet.
 
 ## Implementation
 

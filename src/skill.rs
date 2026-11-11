@@ -6,7 +6,7 @@
 //!
 //! The skill is compiled into the binary rather than shipped as a package data
 //! file, because the binary is the only artifact present on every install path.
-//! apt, Homebrew, winget, `cargo install`, the curl one-liner, a prebuilt
+//! apt, winget, `cargo install`, the curl one-liner, a prebuilt
 //! GitHub binary and a source build all produce the binary; `cargo install` in
 //! particular ships no data files at all. Embedding is what makes one
 //! instruction — `xled --install-skill` — true everywhere.

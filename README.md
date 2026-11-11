@@ -38,21 +38,6 @@ sudo apt install xled && xled --install-skill
 
 Both amd64 and arm64 packages ship with every release.
 
-### Homebrew
-
-On macOS or Linux, tap and trust the repository once, since Homebrew gates third-party taps behind explicit trust:
-
-```sh
-brew tap excelano/tap
-brew trust excelano/tap
-```
-
-Then install it, so `brew upgrade` keeps it current:
-
-```sh
-brew install xled && xled --install-skill
-```
-
 ### Windows
 
 With [WinGet](https://learn.microsoft.com/windows/package-manager/), so `winget upgrade` keeps it current:
@@ -91,7 +76,7 @@ xled --install-skill
 
 That writes `~/.claude/skills/xled/` and stamps in the skill's revision, which `xled -V` also prints, so a later run reports whether the skill has fallen behind the binary rather than leaving you to notice. It is safe to re-run: an unchanged skill reports `already current` and nothing is written. `xled --uninstall-skill` removes it. Restart Claude Code afterwards, since skills are discovered at session start.
 
-The skill is compiled into the binary, so this works the same however you installed xled — apt, Homebrew, cargo, or a build from source.
+The skill is compiled into the binary, so this works the same however you installed xled — apt, cargo, or a build from source.
 
 ## Running it
 

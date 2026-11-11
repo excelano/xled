@@ -5,7 +5,8 @@ description: >-
   strip currency, trim, fix case, restore leading zeros, convert DD/MM dates to ISO, fill
   merged-cell blanks, derive a column, crop a table out of a title block and promote its
   header, edit in place with a backup and a report of what changed. Not for reshaping the
-  grid (xshape) or for the row set: join, group, sort, dedupe, filter (xql).
+  grid (xshape), for the row set: group, sort, dedupe, filter (xql), or for a join (a SQL
+  engine such as DuckDB).
 ---
 
 # xled
@@ -29,7 +30,7 @@ value, and xled refuses to guess an ambiguous date layout.
 Hand off when the task changes something other than cell values. Unpivot, pivot,
 transpose, split a column, explode a delimited cell or merge columns is **xshape**. Group,
 aggregate, sort, dedupe or filtering rows out of the result is **xql**; a join, which
-needs a second table, is sqlite3's or DuckDB's. On an unfamiliar file, run **xray** first; it reports a buried header
+needs a second table, belongs to a SQL engine such as DuckDB. On an unfamiliar file, run **xray** first; it reports a buried header
 and names the step to take.
 
 ## Buried headers need `--no-header`

@@ -93,7 +93,7 @@ That writes `~/.claude/skills/xled/` and stamps in the skill's revision, which `
 
 The skill is compiled into the binary, so this works the same however you installed xled — apt, Homebrew, cargo, or a build from source.
 
-## Three ways to run it
+## Running it
 
 ```sh
 xled '<script>' file.csv     # one-shot: run the script, print the result to stdout

@@ -42,8 +42,3 @@ assets = [
     ["README.md", "usr/share/doc/xled/README.md", "644"],
     ["LICENSE", "usr/share/doc/xled/copyright", "644"],
 ]
-
-# The profile that 'dist' will build with
-[profile.dist]
-inherits = "release"
-lto = "thin"

@@ -20,9 +20,4 @@ xled stores nothing outside the files you explicitly write and the skill directo
 
 ## Verifying releases
 
-Every GitHub release includes a `.sha256` file next to each archive listing its SHA-256 hash. Verify any download before running it:
-
-    sha256sum xled-x86_64-unknown-linux-gnu.tar.xz
-    # compare against the value in xled-x86_64-unknown-linux-gnu.tar.xz.sha256
-
-Release artifacts are built by `build-release`, the release program in excelano/shipping, from a tagged commit using the cargo-dist configuration in this repository (`dist-workspace.toml`). That build configuration is public and auditable.
+Every GitHub release carries the `.deb` packages and a Windows zip, built by `build-release`, the release program in excelano/shipping, from a tagged commit. The Excelano apt repository is signed, so `apt` verifies each package it installs, and WinGet checks the zip against the SHA-256 recorded in its manifest. To check a file downloaded from the release page by hand, compare its `sha256sum` with the digest GitHub lists for that asset.

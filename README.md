@@ -49,7 +49,7 @@ xled --install-skill
 
 ### Cargo
 
-If you have a Rust toolchain, install the published crate from [crates.io](https://crates.io/crates/xled). This compiles from source rather than fetching a prebuilt binary, so it is slower than the installer above but needs nothing else:
+If you have a Rust toolchain, install the published crate from [crates.io](https://crates.io/crates/xled). This compiles from source, so it is slower than the packages above but needs nothing else, and it is the install path on macOS:
 
 ```sh
 cargo install xled && xled --install-skill

@@ -1,3 +1,6 @@
+# Author: David M. Anderson
+# Built with AI assistance (Claude, Anthropic)
+#
 # Dependabot keeps this repository's GitHub Actions current, so a security fix
 # arrives as a pull request rather than slipping past. The bumps are grouped
 # into one pull request so they land together.
@@ -19,11 +22,3 @@ updates:
       actions:
         patterns:
           - "*"
-    # actions/checkout, actions/upload-artifact, and actions/download-artifact are pinned by
-    # cargo-dist's generated release.yml. Bumping them independently breaks the
-    # plan job. Update cargo-dist itself in dist-workspace.toml to pick up newer
-    # artifact-action versions through that channel.
-    ignore:
-      - dependency-name: "actions/checkout"
-      - dependency-name: "actions/upload-artifact"
-      - dependency-name: "actions/download-artifact"

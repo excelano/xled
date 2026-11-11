@@ -53,15 +53,15 @@ means the same thing in both tools.
 | `[price]12` | a cell named by column rather than lettered |
 | `C:AF` | column span |
 | `C:`, `:C`, `3:$` | open-ended span — runs to the table's edge (`$` is the last row) |
-| `/re/` | every cell matching the regex (add `i` for case-insensitive: `/re/i`) |
-| `[col]~/re/` | cells in one column matching the regex |
+| `/re/` | rows where any cell matches the regex (add `i` for case-insensitive: `/re/i`) |
+| `[col]~/re/` | rows where that column's cell matches the regex (`!~` for does not match) |
 | `/re/ [col]` | intersect a regex row-select with a column (space = intersect) |
 | `num([qty]) < num([reorder])` | rows where one comparison holds — operands are exprs |
 | `regexmatch([sku], "^TL-")` | rows where a bool-valued call is true; no `== true` needed |
 
 **Combinators** (precedence low→high): `,` union < ` ` (space) intersect < `:` range
 < `!` negate; parentheses override. There is intentionally **no `and` / `or`** — a
-multi-predicate row filter is out of scope (use SQL). A call in address position must
+multi-predicate row filter is out of scope (query it in xql first). A call in address position must
 return a bool: `upper([org])` there is an error naming the missing comparison, not an
 empty selection. Disambiguation notes: the column
 *named* `B` is `[B]` while the column *at* letter B is `B`; the header `2024` is
@@ -214,8 +214,10 @@ rows at the edges.
 
 ## Error vocabulary
 
-Each refusal names where the capability lives rather than failing bare:
-**not-in-scope** (a query, such as a multi-predicate filter → SQL), **not-supported**
-(a reshape → xshape or upstream), and **not-recoverable** (data destroyed before xled saw
-it → re-export). A scope-contract violation (a partial `del`, a multi-column `=`) and the
-combinator wall (`and`/`or`) route here with the right form named.
+Each refusal names where the capability lives rather than failing bare. **not in
+scope** covers a query or a join: `and`/`or` names an xql query to run first, while
+`sort`, aggregation (`sum`, `count`, `group`), `join` and `append` name a `sort` pipe,
+a DuckDB query or an upstream step. **not supported** covers a reshape: `split` shows
+the in-place `s///` rearrangement and a DuckDB `split_part`, and `unpivot` a DuckDB
+`UNPIVOT`; xshape is the family's tool for both. A scope-contract violation (a partial
+`del`, a multi-column `=`) is a correction that names the right form.

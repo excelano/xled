@@ -1,12 +1,9 @@
-# EBNF — the whole xled grammar, formalized
+# xled grammar (EBNF)
 
-The whole of xled's grammar in one place. It consolidates `composition-grammar.md` (addressing),
-`semantics.md` (commands), `expr-grammar.md` (compute), and the intake verbs into **one grammar**.
-The consolidation doubles as a check: anything the proving ground (`proving-ground.md`, Parts
-A/B/C) writes that this grammar cannot derive is drift.
-
-This is the formal surface. The three split spec files above carry the prose rationale; where they
-disagree with this file, this file is the grammar.
+xled's grammar in one place: addressing, commands, the compute layer and the intake verbs.
+`semantics.md` explains what the commands do and how they execute, and `expr-grammar.md` explains
+the compute layer; they carry the prose rationale, and where either disagrees with this file, this
+file is the grammar.
 
 ## Meta-notation
 
@@ -44,13 +41,13 @@ statement   ::= reference command?      (* command omitted ⇒ implicit `show` (
 ```
 
 The top-level shape is `reference command` (DESIGN's organizing rule). A bare reference inspects;
-a bare command scopes the whole table. How the parser finds the seam between the two is
+a bare command scopes the whole table. How the parser finds the boundary between the two is
 Disambiguation note 1.
 
 ### Reference — the address (Excel reference algebra + two atoms)
 
 Precedence, lowest binding to highest: `,` union  <  `SP` intersection  <  `:` range  <  `!` negate.
-Parentheses override (composition-grammar resolved item 1).
+Parentheses override, as in Excel.
 
 ```
 reference   ::= union
@@ -71,8 +68,8 @@ callSel     ::= call                             (* a *call* only — not any bo
 
 `comparison`'s operands are `concat` (defined under Expr), which sits *below* comparison
 precedence and therefore cannot itself contain a `cmpOp`. That single fact enforces "one comparison
-per address atom, no `and`/`or` chaining" structurally — the combinator wall
-(composition-grammar resolved item 2) needs no special rule, the grammar just can't express it.
+per address atom, no `and`/`or` chaining" structurally: the combinator wall needs no special
+rule, because the grammar cannot express a chain.
 
 `callSel` is a function call standing alone as the row-set: `regexmatch([org], "^APP$") del`. It
 exists because a call is the one expr shape that answers true or false without a `cmpOp` in it, and
@@ -85,7 +82,7 @@ no production. A call that returns something other than a bool is a *semantic* e
 shape of correction as a call to a function the library does not have — because whether a name
 returns a bool is not knowable from the grammar.
 
-Covered forms (all from the Part A/C battery): `2` `2:4` `2:` `:4` `$` `C` `AF` `B:D` `B2` `B2:C3`
+Covered forms: `2` `2:4` `2:` `:4` `$` `C` `AF` `B:D` `B2` `B2:C3`
 `[price]` `[a]:[d]` `[day_05]:AF` `/re/` `/re/i` `[col]~/re/` `[col]!~/re/` `[qty]<[reorder]`
 `num([qty])<num([reorder])` `regexmatch([org],"^APP$")` `!1` `!/active/i`, and every
 intersection/union/paren combination of them.
@@ -103,9 +100,9 @@ word        ::= "del"
               | "crop"
               | "header"
               | "rename" REST_OF_LINE
-              | "fill" "down"?            (* see Finding 2 *)
-              | "drop" "blanks" dropAxis?  (* see Finding 1 — newly formalized this slice *)
-              | "describe"                 (* see Finding 1 — newly formalized this slice *)
+              | "fill" "down"?
+              | "drop" "blanks" dropAxis?
+              | "describe"
 
 dropAxis    ::= "rows" | "cols"
 substFlag   ::= "g" | "i" | rownum        (* rownum = the Nth-occurrence flag *)
@@ -144,7 +141,7 @@ production reaches it: in address position a `cmpOp` makes a row-set; in RHS pos
 bool value. Same operators, same operands — defined once here.
 
 No boolean `and`/`or`/`not`: there is no production for them. Multi-condition logic nests through
-`if()`/`coalesce()`; a real predicate is xql's job (expr-grammar, locked). A variadic *function*
+`if()`/`coalesce()`; a real predicate is xql's job (expr-grammar). A variadic *function*
 whose arguments are values rather than predicates — `in(x, a, b)` — is not a combinator by another
 name and does not reopen this; the argument is in expr-grammar, beside the refusal.
 
@@ -171,8 +168,7 @@ string      ::= '"' strChar* '"'                 (* '\"' escapes a double-quote 
 - **`regexBody`** — `regex`-crate syntax. `^`/`$` are **cell-bounded** (anchor to cell start/end,
   not row/line); `^$` matches an empty cell (semantics rule 4).
 - **`replBody`** — xled's **sed replacement dialect**, written by xled over the crate's captures:
-  `\1`–`\9` backrefs, `&` whole match, `\U \L \u \l \E` case-folding (semantics, slice-3 lock).
-  This is why case/trim live in `s///`, not in expr.
+  `\1`–`\9` backrefs, `&` whole match, `\U \L \u \l \E` case-folding (`semantics.md`).
 - **`REST_OF_LINE`** — the literal remainder of the input line, verbatim, used only by `rename`.
 
 ---
@@ -184,12 +180,13 @@ written to *agree* with them, but a parser implements them directly.
 
 1. **Reference ↔ command boundary (maximal munch + lexical command class).** `SP` is both the
    intersection operator *and* the space before a command, so `2:4 del` could read two ways. The
-   rule (composition-grammar, the load-bearing decision): the parser consumes the **maximal leading
-   reference expression**, then exactly one command. Commands are lexically distinct from reference
+   rule: the parser consumes the **maximal leading reference expression**, then exactly one
+   command. Commands are lexically distinct from reference
    atoms — *sigil-led* (`s` immediately followed by a delimiter; `=`) or a *reserved word*
    (`del show crop header rename fill drop describe`). A column ref `S` is `s` followed by space /
    `,` / `:` / end — never by a delimiter — so `s/` is always substitute and `=` is never a column.
-   This is why the boundary is decidable without a separator (the rejected Candidate-2 `|`).
+   This is why the boundary is decidable without a separator such as `|` between address and
+   command.
 
 2. **Column atom ↔ comparison (one-token lookahead).** A leading `[name]`, `rownum`, `number`,
    `(` … could begin either a positional/range *or* the left operand of a `comparison`. Resolve by
@@ -200,7 +197,7 @@ written to *agree* with them, but a parser implements them directly.
    `callSel` needs no lookahead at all: a lowercase word followed immediately by `(` is a call and
    nothing else, because a column is bracketed or uppercase and a command word is followed by a
    space. The two words that shape are *not* — a reserved command (`del(`, a malformed command) and
-   a catalogued capability (`sum(`, which gets its refusal) — are decided by name, before the
+   a cataloged capability (`sum(`, which gets its refusal) — are decided by name, before the
    grammar is consulted.
 
 3. **`$` — last-row vs end-anchor (by position).** As a `positional`, `$` is the last data row. The
@@ -216,18 +213,21 @@ The EBNF accepts any `reference command` pairing; these constraints are **semant
 execution, with the `errors.md` voice), not grammatical. Listed here so the spec is complete in one
 place.
 
-| Command | Required address shape | Empty address? | On violation |
-|---|---|---|---|
-| `s///` | any cell scope | whole table | — |
-| `= expr` | exactly **one** column (existing or new name/letter) × a row scope | error | "assignment writes exactly one" (semantics 7) |
-| `del` | whole rows **or** whole columns | error | "can't delete a partial region" (semantics 10) |
-| `show` | any | whole table | — |
-| `crop` | a rectangle / range | error | needs a region |
-| `header` | exactly one row | error | one row only |
-| `rename` | exactly one column | error | one column |
-| `fill` | a column or columns | error | column scope |
-| `drop blanks` | edges of the working table (rows and/or cols) | whole table | — |
-| `describe` | any (advisory only — never mutates) | whole table | — |
+| Command | Required address shape | On violation |
+|---|---|---|
+| `s///` | any cell scope | — |
+| `= expr` | exactly **one** column (existing or new name/letter) × a row scope | "assignment writes exactly one" (semantics 7) |
+| `del` | whole rows **or** whole columns | "a rectangle has no row-or-column to drop" (semantics 10) |
+| `show` | any | — |
+| `crop` | a rectangle / range | "crop needs a region" |
+| `header` | exactly one row | "header promotes exactly one row" |
+| `rename` | exactly one column | "rename takes exactly one column" |
+| `fill` | a column or columns | — |
+| `drop blanks` | edges of the working table (rows and/or cols) | — |
+| `describe` | any (advisory only — never mutates) | — |
+
+A command with no address takes the whole table as its scope and is held to the same shape: `del`
+alone deletes every data row, and `rename` alone refuses unless the table has one column.
 
 `del`'s "whole rows or whole columns" and `=`'s "exactly one column" are the cases the *corrections*
 section of `errors.md` already voices — the scope contract and the error catalog are the same
@@ -235,43 +235,16 @@ boundary stated twice.
 
 ---
 
-## Conformance — the proving ground is the test suite
-
-Every command line in `proving-ground.md` Parts A, B, and C must be derivable from this grammar.
-All three batteries derive cleanly against the productions above, and the grammar and the battery
-agree end to end.
-
----
-
-## Three productions that exist for a reason
-
-Each of these looks like a small syntactic choice and is load-bearing. They are recorded here so a
-future change doesn't quietly undo one.
+## Three productions and why they are shaped so
 
 1. **`drop blanks` takes an *optional* axis.** Bare `drop blanks` trims fully-empty **edge** rows and
-   columns; `rows`/`cols` restricts it to one axis. The bare form is what the conformance battery
-   writes, and edge-only matches the crop-before-drop seam.
+   columns; `rows`/`cols` restricts it to one axis. Edge-only means a blank spacer column between two
+   side-by-side tables survives until a `crop` has picked one table out.
 
 2. **`fill down` is optional-direction sugar over bare `fill`.** `"fill" "down"?` makes both spellings
-   the same command. This future-proofs `fill up` and `fill right` as non-breaking later additions
-   rather than a token that would have to be retrofitted.
+   the same command, and leaves room for another direction without retrofitting a token.
 
-3. **`y/set/set/` and `append` are reserved, not granted a production.** Transliterate is deferred
-   (`semantics.md`), so `y` is held so a later addition slots in without collision; committing syntax
-   now would violate the no-syntax-we-haven't-designed rule. Row-`append` is out of scope
-   (`errors.md`), and its word is reserved so the refusal can name where rows are generated. Their
-   *absence* from the grammar is intentional.
+3. **`y/set/set/` and `append` have no production.** xled has no transliterate (`s///` with
+   alternation covers the common case), so `y` is an unknown command. Row-`append` is out of scope,
+   and the word is matched by name so its refusal can say where rows are generated (`errors.md`).
 
----
-
-## What this grammar settles
-
-- **One grammar, four sources reconciled.** Addressing, commands, compute, and intake all derive from
-  a single EBNF. The three split spec files remain the prose rationale; this is the formal surface.
-- **The combinator wall is structural, not a rule.** `comparison` operands are `concat` (below
-  comparison precedence), so `and`/`or` chaining is *inexpressible* rather than merely rejected.
-  `callSel` is held to a `call` rather than a `concat` to keep it that way.
-- **The three things EBNF cannot hold are named and bounded** — ref/command munch, column/comparison
-  lookahead, and `$` by position. A parser implements exactly these three, nothing more.
-- **Scope contracts and the error catalog are one boundary.** Listed once as a table here, voiced once
-  as corrections in `errors.md`.

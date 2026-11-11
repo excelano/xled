@@ -1,10 +1,10 @@
 # Expr — the compute layer
 
-Scope: the RHS of `= expr` assignment, and the operands of address-comparison atoms. The address/composition grammar lives in `composition-grammar.md`; text rewriting lives in `semantics.md` under `s///`. This file is everything that computes a *value*: arithmetic, concatenation, comparison-as-bool, and a small function library.
+Scope: the RHS of `= expr` assignment, and the operands of address-comparison atoms. The address grammar lives in `ebnf.md`; text rewriting lives in `semantics.md` under `s///`. This file is everything that computes a *value*: arithmetic, concatenation, comparison-as-bool, and a small function library.
 
-Why it earns its own spec: rendering `proving-ground.md` Part B against the locked grammar showed the "thin compute layer" is not thin. It carries B9 (compute/derive), B10 (conditional/blank), the join half of B8, and every comparison scope in Part A. The library below is **derived from the battery's actual operations, not invented** — each function cites the item that forces it.
+The compute layer carries deriving a column from others, conditionals and blank handling, and the operands of every comparison address.
 
-## The layered split (load-bearing)
+## The layered split
 
 xled has exactly two transform layers, and the line between them is sharp:
 
@@ -13,13 +13,13 @@ xled has exactly two transform layers, and the line between them is sharp:
 
 The test: *rewriting the characters of a cell by pattern* → `s///`; *producing a value (number, bool, date, or a picked / measured / computed string)* → `expr`.
 
-Case-folding and trimming were first held out of expr on the argument that they are pattern rewrites of text and belong in `s///`. The compose case decided otherwise: `[full] = upper([first]) & " " & [last]` cannot be written that way without a second pass, and a layer boundary that forces two commands to do one thing is drawn in the wrong place. So `upper`/`lower`/`proper` and the `trim` family live in expr as well, guaranteed to fold identically to `s///`'s `\U`/`\L` so a script can reach for either and never see them disagree. The boundary that actually holds is the one above: `s///` matches a *pattern*; expr does not. There is no regex in the function library, and there is no substitution in it either.
+Case-folding and trimming are in both layers. A compose such as `[full] = upper([first]) & " " & [last]` needs them inside an expression, and making it two commands would put the boundary in the wrong place, so `upper`/`lower`/`proper` and the `trim` family live in expr and fold identically to `s///`'s `\U`/`\L`; a script can use either and never see them disagree. Regex is in both layers too, with a different job in each: `s///` rewrites the cells it addresses in place, while `regexreplace` and `regexmatch` read a cell and produce a value, which an assignment can write to a different column.
 
 ## Value model
 
 Four types: string, number, bool, date. The buffer is all strings; expr lifts a cell to a typed value, computes, and serializes back to a string on write. **No auto-coercion** — casts are explicit (`num()`, `bool()`, `date()`), the same property that keeps leading zeros and long IDs safe. A cast failure is non-halting: it leaves the cell unchanged and increments the warning tally (`semantics.md` rule 6, lenient).
 
-**Comparisons are string-wise unless cast.** `[qty] < [reorder]` compares the literal strings — `"9" > "10"` lexically, which is *not* numeric order. For numeric order, cast both sides: `num([qty]) < num([reorder])`. This is the price of no-coercion and it is deliberate: auto-numifying (awk's behavior) reintroduces exactly the silent surprises the stringly model exists to prevent. The proving ground's A3 example uses the cast form.
+**Comparisons are string-wise unless cast.** `[qty] < [reorder]` compares the literal strings — `"9" > "10"` lexically, which is *not* numeric order. For numeric order, cast both sides: `num([qty]) < num([reorder])`. This is the price of no-coercion and it is deliberate: auto-numifying (awk's behavior) reintroduces exactly the silent surprises the stringly model exists to prevent.
 
 ## Atoms
 
@@ -35,23 +35,23 @@ A literal `]` inside a bracketed name is doubled (`]]`), matching the address gr
 
 ## Operators & precedence
 
-Highest → lowest: `fn()` / atom  >  unary `-`  >  `* /`  >  `+ -`  >  `&` (concat)  >  comparison (`== != < > <= >=`). Parentheses override. Comparison sits lowest so `num([qty]) < num([reorder])` groups as intended; a comparison yields a bool, serialized `true`/`false` when written to a cell (B9's boolean column).
+Highest → lowest: `fn()` / atom  >  unary `-`  >  `* /`  >  `+ -`  >  `&` (concat)  >  comparison (`== != < > <= >=`). Parentheses override. Comparison sits lowest so `num([qty]) < num([reorder])` groups as intended; a comparison yields a bool, serialized `true`/`false` when written to a cell.
 
 - Arithmetic `+ - * /` on numbers; a non-numeric operand is a cast failure (lenient, tallied). `+` and `-` also carry date arithmetic (see Dates).
 - `&` concatenates strings — Excel's concat operator: `[first] & " " & [last]`.
-- Comparison `== != < > <= >=` — string-wise unless `num()`-cast; yields a bool. This is the *same* operator set and operand grammar as the address-comparison atom in `composition-grammar.md`: in address position it selects rows, in RHS position it produces a bool value.
+- Comparison `== != < > <= >=` — string-wise unless `num()`-cast; yields a bool. This is the *same* operator set and operand grammar as the address-comparison atom in `ebnf.md`: in address position it selects rows, in RHS position it produces a bool value.
 
-**No boolean `and`/`or`/`not` operators in expr** — that is the slippery slope out of xled's lane. Multi-condition logic nests through `if()`/`coalesce()`; genuine multi-predicate filtering is xql's job. This keeps expr consistent with refusing combinators in *address* position, which is the same boundary drawn in `composition-grammar.md`.
+**No boolean `and`/`or`/`not` operators in expr** — that is the slippery slope out of xled's lane. Multi-condition logic nests through `if()`/`coalesce()`; genuine multi-predicate filtering is xql's job. This keeps expr consistent with refusing combinators in *address* position, which is the same boundary the address grammar draws in `ebnf.md`.
 
 **`in(x, …)` is not the exception that reopens it.** `in(x, a, b)` is `x == a or x == b`, so it owes this refusal an answer rather than a pass. The answer is that **`in`'s arguments are values, not predicates** — one subject against a closed list of members. It combines nothing; the `or` is internal to a single test, which is why SQL gives `IN` its own primitive instead of making people write the chain. `coalesce` is already the variadic first-one-that-answers shape on the value side, and `in` is its sibling on the predicate side.
 
-What the refusal has always meant is that no *operator* chains conditions: there is no production for one, so there is no rule for a parser to enforce (`ebnf.md`, the combinator wall). It has never meant two conditions cannot be combined at all — `if(cond, true, other)` nests them today and is documented above as the way to. `in(true, [a] > 5, [b] < 3)` arrives at the same place through the same door: neither newly possible nor recommended, because a real multi-predicate filter is a query and reads better as one. The wall is against growing the grammar toward xql's job, not against a determined nesting.
+The refusal means that no *operator* chains conditions: there is no production for one, so there is no rule for a parser to enforce (`ebnf.md`, the combinator wall). It does not mean two conditions cannot be combined: `if(cond, true, other)` nests them, as above. `in(true, [a] > 5, [b] < 3)` arrives at the same place through the same door: neither newly possible nor recommended, because a real multi-predicate filter is a query and reads better as one. The wall is against growing the grammar toward xql's job, not against a determined nesting.
 
 ## Function library
 
 Excel-faithful names where the user's Excel half reads them on sight; awk where that memory is stronger.
 
-The set is **derived, not invented**: the original library came out of rendering `proving-ground.md` Part B against the grammar, and each addition since has come from a case the battery or real use produced. Nothing is here because a spreadsheet has it.
+Each function is here because a cleaning case needed it; nothing is here only because a spreadsheet has it.
 
 **Casts and logic**
 
@@ -72,7 +72,7 @@ The set is **derived, not invented**: the original library came out of rendering
 | `len(x)` | character length → number |
 | `left(x, n)` / `right(x, n)` | first / last `n` characters |
 | `mid(x, start, n)` | `n` chars from 1-based `start` (Excel MID) |
-| `substr(x, start [, len])` | awk substring, 1-based; the **2-arg form is "from `start` to end"** — the reason it earns a slot beside `mid` (the 3-arg form is `mid`, kept as the awk-memory door) |
+| `substr(x, start [, len])` | awk substring, 1-based; the **2-arg form is "from `start` to end"**, which `mid` cannot do (the 3-arg form is `mid`, kept for awk memory) |
 | `upper(x)` / `lower(x)` / `proper(x)` | case-fold, Unicode, identical to `s///`'s `\U`/`\L`; `proper` carries Excel PROPER's `mcdonald` → `Mcdonald` quirk rather than out-guessing names |
 | `trim(x)` / `ltrim(x)` / `rtrim(x)` | strip whitespace both sides / left / right, Unicode so Excel's non-breaking space goes too |
 | `lpad(x, w [, fill])` / `rpad(x, w [, fill])` | pad to width `w`; **never truncates**, because dropping characters is the same betrayal as coercion |
@@ -99,6 +99,7 @@ A pattern is an ordinary argument, so it may be a column and vary from row to ro
 | Function | Does |
 |---|---|
 | `round(x, d)` | round to `d` decimals |
+| `fixed(x [, d] [, no_commas])` | Excel's `FIXED`: the text of `x` rounded to `d` decimals (default 2), with thousands separators unless `no_commas` is true; `fixed(1234.5, 2, true)` is `1234.50` |
 | `abs(x)` / `floor(x)` / `ceil(x)` | the usual three |
 | `mod(a, b)` | remainder taking the **dividend's** sign (awk/C, not Excel's divisor-sign MOD) — this being sed *and awk*; divide-by-zero leaves the cell |
 | `min(a, …)` / `max(a, …)` | variadic, numeric |
@@ -107,17 +108,17 @@ A pattern is an ordinary argument, so it may be a column and vary from row to ro
 
 `if()` draws the no-control-flow line precisely: a conditional *expression* (a function returning a value) is in; statement-level branching and loops are out. Chosen over awk's `?:` because `:` is already the range operator and `if()` reuses the function-call machinery with zero new syntax. It is also Excel's exact spelling for a half-Excel user.
 
-`in(x, a, …)` is the set-membership test, and it exists because the alternation that could stand in for it is wrong twice over. Unanchored, `^(?:APP|CAM)$` without its anchors matches inside `APPLE` and `SCAM`. Anchored, every member is still regex *source*, so a value carrying a metacharacter is compiled rather than compared — against `^(?:R+D)$`, the value `R+D` does not match and `RRD` does, which is the failure landing on the one row that matters and saying nothing. `in` compares literals, so neither is available to it. Comparison is the layer's own — numeric only when both sides are already numbers, chronological only when both are dates, string-wise otherwise — so `in(num([qty]), 1, 2)` is numeric and `in([code], "007")` is not. Case is exact, like `[name]` addressing and for the same reason; `in(upper([org]), "APP")` is the folded form, one visible call rather than a hidden policy. An empty member is an ordinary test that a blank cell passes, since `default`/`coalesce` already own the blank-handling vocabulary. A subject with no members (`in(x)`) is a correction, not a constant false. Reading the set from a column or a file would be a join, and that is xql's.
+`in(x, a, …)` is the set-membership test, and it exists because the alternation that could stand in for it is wrong twice over. Unanchored, `^(?:APP|CAM)$` without its anchors matches inside `APPLE` and `SCAM`. Anchored, every member is still regex *source*, so a value carrying a metacharacter is compiled rather than compared — against `^(?:R+D)$`, the value `R+D` does not match and `RRD` does, which is the failure landing on the one row that matters and saying nothing. `in` compares literals, so neither is available to it. Comparison is the layer's own — numeric only when both sides are already numbers, chronological only when both are dates, string-wise otherwise — so `in(num([qty]), 1, 2)` is numeric and `in([code], "007")` is not. Case is exact, like `[name]` addressing and for the same reason; `in(upper([org]), "APP")` is the folded form, one visible call rather than a hidden policy. An empty member is an ordinary test that a blank cell passes, since `default`/`coalesce` already own the blank-handling vocabulary. A subject with no members (`in(x)`) is a correction, not a constant false. Reading the set from a column or a file would be a join, which belongs to a SQL engine.
 
-Deliberately absent: boolean `and`/`or` **operators** (nest `if`, or it is an xql query); a regex-extract function (→ `s///` in place — revisit only if split-into-columns earns a home, see proving-ground B8); `row()`, which would let a computed cell read its own position and break the value-in/value-out model — `--number` emits logical row numbers instead, and the error says so rather than reporting an unknown function.
+Deliberately absent: boolean `and`/`or` **operators** (nest `if`, or it is an xql query); a regex-extract function (`regexreplace` with a capture group does it, and `s///` does it in place); `row()`, which would let a computed cell read its own position and break the value-in/value-out model — `--number` emits logical row numbers instead, and the error says so rather than reporting an unknown function.
 
 **Numbers serialize at full precision — `round()` is mandatory for money.** A number is a binary `f64`, and it writes back as the shortest decimal that round-trips to that exact float. So `= num([price]) * 1.1` on `19.99` writes `21.989` here but can write `21.989000000000004` elsewhere, because the product isn't representable in binary. This is not a bug to fix by rounding on write: silent rounding would betray the stringly model the same way auto-coercion would — the layer never invents precision the user didn't ask for. The rule is therefore explicit: any computed column that is currency or fixed-decimal must be wrapped in `round(…, d)`, e.g. `[total] = round(num([price]) * [qty], 2)`. Integral results (`2.0`) already print clean (`2`); it is only fractional float arithmetic that leaks artifacts, and `round()` is the one place precision is pinned.
 
 ## Dates
 
-A date is a type, not a string convention. `intake-taxonomy.md` names date auto-conversion as a headline damage category, and repairing it — normalizing a column, pulling a year out for grouping, computing a duration — is row-local scalar work, squarely in this layer's lane. Internally a naive calendar date: no time of day, no timezone, no offset.
+A date is a type, not a string convention. Spreadsheet date auto-conversion is among the commonest damage in an exported CSV, and repairing it — normalizing a column, pulling a year out for grouping, computing a duration — is row-local scalar work, squarely in this layer's lane. Internally a naive calendar date: no time of day, no timezone, no offset.
 
-**Dates serialize as ISO 8601 (`YYYY-MM-DD`).** This is load-bearing rather than a default, because it makes the most common repair fall out of the cast alone, with no formatting call at all:
+**Dates serialize as ISO 8601 (`YYYY-MM-DD`).** That choice makes the most common repair fall out of the cast alone, with no formatting call at all:
 
 ```
 [hired] = date([hired], "DD/MM/YYYY")      # a British-formatted column, normalized in place
@@ -133,7 +134,7 @@ ISO is also lexically sortable, so a serialized date column still orders correct
 
 `date(x, fmt)` reads that layout and only that one.
 
-A bare `date(x)` therefore has three outcomes, and the split between the last two is the whole safety property:
+A bare `date(x)` therefore has three outcomes, and the split between the last two is the safety property:
 
 | The value | Outcome | Because |
 |---|---|---|
@@ -166,7 +167,7 @@ Casting a date *out* is refused rather than skipped, since it can only be a mist
 
 ### The rest of the library
 
-`text(d, fmt)` renders a date back out under an Excel format. The name is reserved for the whole of Excel's TEXT, but only the date half ships: called on a number it says *not yet* and points at `round()`, because the error taxonomy exists so a real future capability is distinguishable from a typo. Number formatting — separators, currency, fixed decimals — has its own token language and is a later slice.
+`text(d, fmt)` renders a date back out under an Excel format. It formats dates only: called on a number it refuses and points at `fixed()`, which writes a number with set decimals and thousands separators.
 
 `year(d)`, `month(d)`, `day(d)` return numbers. `weekday(d)` returns the **ISO** day of week, 1 = Monday through 7 = Sunday. This differs from Excel, whose default 1 = Sunday is a US convention kept for backward compatibility and which Excel itself lets you override; a tool whose dates serialize as ISO should not carry an off-by-one weekday. Stated here rather than left to be discovered.
 
@@ -176,12 +177,12 @@ None of these coerce. `year([hired])` on a string column is a missing cast, wron
 
 ### Out of scope
 
-**Month arithmetic** (Excel's `EDATE`/`EOMONTH`). "January 31 plus one month" has no correct answer, only policies, and picking one silently is the same class of mistake as guessing DD/MM. Deferred until there is real evidence of the need, and then designed with the policy stated out loud.
+**Month arithmetic** (Excel's `EDATE`/`EOMONTH`). "January 31 plus one month" has no correct answer, only policies, and picking one silently is the same class of mistake as guessing DD/MM. xled does not offer it; adding it would mean choosing a policy and stating it.
 
 **Times and timezones.** A `DateTime` would need offset rules, DST, and a formatting dialect in which Excel's `mm` ambiguity finally bites. Truncating a timestamp covers the common created/modified column without opening any of it.
 
-**Aggregates over a date column** — earliest, latest, count by month — are xql's, unchanged. The two agree on what a date is: xql's loader reads the same ISO forms and likewise refuses to guess a layout, so a column normalized here groups correctly there. The one asymmetry to know when chaining is that **xled truncates a timestamp to its date and xql keeps the time.** Running a created/modified column through `date()` therefore discards the clock, which is the intended behavior of a tool with no time type but is worth knowing before piping the result on.
+**Aggregates over a date column** — earliest, latest, count by month — are xql's. The two agree on what a date is: xql's loader reads the same ISO forms and likewise refuses to guess a layout, so a column normalized here groups correctly there. The one asymmetry to know when chaining is that **xled truncates a timestamp to its date and xql keeps the time.** Running a created/modified column through `date()` therefore discards the clock, which is intended in a tool with no time type; keep the original column if the time matters downstream.
 
 ## What this layer does not do
 
-Join, aggregate, group, sort, multi-condition query → xql/DuckDB. Reshape — unpivot, split one cell into N columns, collapse a multi-row header → out. The expr layer computes one new value per row into one column; it never changes the table's shape beyond appending a column, which assignment already covers.
+Aggregate, group, sort and multi-condition query → xql. Join → a SQL engine such as DuckDB. Reshape — unpivot, pivot, split one cell into several columns → xshape. The expr layer computes one new value per row into one column; it never changes the table's shape beyond appending a column, which assignment already covers.

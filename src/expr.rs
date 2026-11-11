@@ -657,7 +657,7 @@ fn require_num(v: &Value) -> Result<f64, EvalErr> {
 /// Explicit `num()` cast: parse strings, bools → 1/0.
 ///
 /// A date has no number to cast to. Excel would hand back a serial number, but serials are
-/// the damage xled exists to repair (`intake-taxonomy.md`), not a value to hand out — so this
+/// the damage xled exists to repair, not a value to hand out — so this
 /// halts and names the four things the caller actually wanted.
 fn cast_num(v: &Value) -> Result<f64, EvalErr> {
     match v {

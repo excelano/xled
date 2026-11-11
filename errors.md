@@ -1,6 +1,6 @@
 # Errors & negative space
 
-What xled refuses, and the exact words it refuses with. The address/composition grammar (`composition-grammar.md`), the commands (`semantics.md`), and the compute layer (`expr-grammar.md`) define what xled *does*; this file defines the edge — what it won't do, and how it says so. Examples here are synthetic.
+What xled refuses, and the words it refuses with. The grammar (`ebnf.md`), the commands (`semantics.md`) and the compute layer (`expr-grammar.md`) define what xled *does*; this file defines the edge, what it won't do and how it says so. Examples here are synthetic, and where this file and the binary disagree, the binary's message is the one in force.
 
 ## The thesis: an error is a router
 
@@ -14,13 +14,12 @@ One template, filled differently per destination:
 <attempt> is not <verb>: <reason, one phrase>. <action>.
 ```
 
-The `<verb>` is load-bearing — it tells the user, in one word, what *kind* of dead end they hit and therefore where to go next:
+The `<verb>` tells the user, in one word, what *kind* of dead end they hit and therefore where to go next:
 
 | Verb | Means | Goes to |
 |---|---|---|
-| not in **scope** | a different tool's job — query, not edit | xql / DuckDB |
-| not **supported** | reshaping — changes the table's shape | upstream reshape, or in-place `s///` |
-| not **recoverable** | the data was already destroyed before xled saw it | upstream re-export |
+| not in **scope** | a different tool's job — query, not edit | xql, DuckDB, or upstream |
+| not **supported** | reshaping — changes the table's shape | in-place `s///`, or DuckDB |
 
 A further case is *not* a boundary and does not use this shape: a **correction**, where the user wrote a legal form that means something other than they intended. That gets a different voice — name what they wrote, name what it does, then give the form for what they meant:
 
@@ -34,7 +33,7 @@ Every refusal is permanent. xled does not promise features in its errors: a capa
 
 ## Catalog
 
-### Out of scope → xql / DuckDB
+### Out of scope → xql, DuckDB, or upstream
 
 xled edits cells; it does not answer questions about the table. The line is filter-as-scope (in) versus filter-as-result (out): selecting which rows to *edit* is addressing; producing rows, counts, or a reordering as the *answer* is a query. Every item here is permanent.
 
@@ -45,7 +44,7 @@ Sort upstream and pipe in — sort -t, -k3 file.csv | xled '…' — or let the
 query engine do it: duckdb -c "FROM file.csv ORDER BY price".
 ```
 
-**Multi-condition filter (`and` / `or` / `not`-as-logic).** One comparison is a legal address; the first combinator is the wall. This is the same boundary the address grammar draws (`composition-grammar.md` resolved item 2) and the same one expr draws (`expr-grammar.md`, no boolean operators) — stated once, enforced in both positions.
+**Multi-condition filter (`and` / `or` / `not`-as-logic).** One comparison is a legal address; the first combinator is the wall. This is the same boundary the address grammar draws (`ebnf.md`, the combinator wall) and the same one expr draws (`expr-grammar.md`, no boolean operators).
 ```
 combining conditions with and/or is not in xled's scope: an address selects rows
 to edit, it is not a query. For one more condition, run a second xled command on
@@ -76,7 +75,7 @@ the rows in the query engine: duckdb -c "FROM a.csv UNION ALL FROM b.csv".
 
 ### Reshaping → upstream, or `s///` in place
 
-xled carves one rectangular table out of junk (`crop`, `header`, `drop blanks`, `fill down`) and cleans its cells. It does not change the carved table's *shape* — its row count by generating rows, its column count by splitting, or its column *order*. That invariant ("xled never reshapes") is what keeps it on the safe side of the line it shares with joins and aggregates. Permanent, but several have a real in-place rewrite.
+xled carves one rectangular table out of junk (`crop`, `header`, `drop blanks`, `fill down`) and cleans its cells. It does not change the carved table's *shape*: its row count by generating rows, its column count by splitting, or its column *order*. Reshaping is xshape's job. Permanent, but splitting has a real in-place rewrite for the common case.
 
 **Split one cell into several columns.** Assignment writes one column; widening the row mid-table is reshaping.
 ```
@@ -86,101 +85,47 @@ place with s/// — [name] s/(.*), (.*)/\2 \1/ — or split upstream:
 duckdb -c "FROM file.csv SELECT split_part(name, ', ', 1) AS last, …".
 ```
 
-**Reorder / move columns.** Addressing reaches columns where they sit; it does not move them.
-```
-moving columns is not supported: xled addresses columns where they sit and never
-reshapes the table. Reorder in the query engine — duckdb -c "FROM file.csv
-SELECT dept, name, cost" — which is also where you would rename or drop them.
-```
-
-**Unpivot / collapse a multi-row header / merge stacked tables.** Shape changes, full stop.
+**Unpivot.** A shape change.
 ```
 unpivoting (wide → long) is not supported: it changes the table's shape, which
 xled never does. Reshape in the query engine — duckdb -c "UNPIVOT file.csv …".
 ```
 
-### Not recoverable → upstream re-export
-
-The hardest refusal to accept, because it looks like xled's failure when it is Excel's. By the time the data is a CSV, the original digits are already gone; no downstream tool can un-destroy them. The error has to make clear the loss happened *before* xled and point at the only real fix — re-export from the source with the column typed as text. Where a deterministic reconstruction exists, offer it as a hedge the user opts into, never as a silent default.
-
-**Stripped leading zeros.**
-```
-the leading zeros in [zip] are not recoverable: Excel dropped them on import, so
-"00501" is already the number 501 in this file. Re-export from the source with the
-column typed as text. If the width is fixed you can re-pad — [zip] s/^/0/ repeated
-to 5 wide — but only you know the original width.
-```
-
-**Long IDs in scientific notation.**
-```
-the IDs in [account] are not recoverable: Excel stored them as 1.23E+11 and the
-trailing digits are gone from the file. xled cannot reconstruct digits the
-spreadsheet discarded — re-export from the source as text.
-```
-
-**Dates left as serial numbers.**
-```
-the dates in [date] are serial numbers, not dates: Excel exported 45292 instead of
-2024-01-01. Re-export formatted as text if you can. If you trust the origin you can
-convert by the epoch (Excel day 1 = 1899-12-30), but a wrong epoch corrupts every
-row silently — re-export is safer.
-```
-
-**Leaked formula errors (`#REF!`, `#DIV/0!`, `#N/A`).** The cell *text* is scrubbable; the *value* it should hold is gone.
-```
-the #REF! in [total] is not a recoverable value: the formula that produced it broke
-in Excel before export. You can blank the marker — [total] s/^#\w+!?$//  — but the
-number it should hold has to be recomputed at the source.
-```
-
 ### Corrections — legal form, unintended meaning
 
-Not boundaries; the user is inside the grammar but a step from a footgun. Name what they wrote, what it does, and the intended form. These already live as rules in `semantics.md` (10, 7, 6) and `composition-grammar.md` (6); this is their shared voice.
+Not boundaries; the user is inside the grammar but a step from a footgun. Name what they wrote, what it does, and the intended form. The rules behind them are in `semantics.md` (10, 7, 6).
 
-**Partial-rectangle delete** (semantics rule 10).
+**Partial-rectangle delete** (semantics rule 10), for `2:4 [status] del`.
 ```
-2:4 [status] del names a rectangle, and a rectangle has no row-or-column to drop.
-To clear those cells, s/.*// over them; to delete, address whole rows (2:4 del)
-or whole columns ([status] del).
+this address names a rectangle, and a rectangle has no row-or-column to drop.
+To clear those cells, s/.*// over them; to delete, address whole rows (e.g. 2:4 del)
+or whole columns (e.g. [status] del).
 ```
 
-**Assignment with not exactly one target** (semantics rule 7).
+**Assignment with not exactly one target** (semantics rule 7), for `[price],[cost] = …` or a row-only `2:4 = …`.
 ```
-[price],[cost] = … assigns to two columns; assignment writes exactly one. Assign to
-one column, or run two commands. (2:4 = … names rows with no column — same fix.)
+this address spans 2 columns; assignment writes exactly one — assign to one column,
+or run two commands.
 ```
 
 **A bare word that is not a command.** Every lowercase word is legal column letters, because a letter run upcases into a column index. So a word xled does not know is a well-formed address for a column the table does not have, and the correction has to name both readings.
 ```
 column PIVOT is past this table's 3 columns (A-C). A bare word is read as column
 letters, so if PIVOT was meant as a command there is no such command — see --help;
-if it is a column name, write [PIVOT].
+if it is a column name, write it in brackets.
 ```
-This is what keeps a mistyped or out-of-scope verb from passing for an address and returning an empty result on a success code. A word the catalog above names is refused by that entry instead, so `sort` gets the sort message rather than this one — and that holds for the *called* form as well, `sum([cost])` alongside bare `sum`. The call form needed saying out loud: a `(` denies the word the space boundary a command is recognized by, so before it was routed by name it read as column letters and died as a malformed command, catalog untouched. Note the asymmetry with rows, which is deliberate: a *row* past the end still selects nothing without complaint, because a file having fewer rows than the address asked for is a short file, while a table's column count is its schema.
+This is what keeps a mistyped or out-of-scope verb from passing for an address and returning an empty result on a success code. A word the catalog above names is refused by that entry instead, so `sort` gets the sort message rather than this one — and that holds for the *called* form as well, `sum([cost])` alongside bare `sum`. The call form is routed by name too, because a `(` denies the word the space boundary a command is recognized by, and it would otherwise read as column letters and fail as a malformed command. Note the asymmetry with rows, which is deliberate: a *row* past the end still selects nothing without complaint, because a file having fewer rows than the address asked for is a short file, while a table's column count is its schema.
 
-**A call in address position that does not answer true or false** (composition-grammar, the row-set atom table). A bool-valued call addresses rows; one returning text or a number cannot select anything, and it is the same shape on every row, so it halts rather than returning nothing on a success code. Naming the function matters here — the mistake is nearly always a missing comparison, not a wrong function.
+**A call in address position that does not answer true or false** (`ebnf.md`, `callSel`). A bool-valued call addresses rows; one returning text or a number cannot select anything, and it is the same shape on every row, so it halts rather than returning nothing on a success code. Naming the function matters here — the mistake is nearly always a missing comparison, not a wrong function.
 ```
 upper() produces text, and an address selects on true or false; for the rows where it
 holds, compare it — upper(…) == "value" — or address with a test that answers true or
 false, like regexmatch().
 ```
 
-**`=` where `==` was meant** (composition resolved item 6).
+**Cast-failure tally** (semantics rule 6). Lenient, non-blocking; the notice shown after the command. A column the command created says `left empty` instead.
 ```
-[price] = [cost] assigns cost into price — it is not a filter. For "rows where price
-equals cost", use ==: [price]==[cost]. (Numeric compare needs a cast:
-num([price])==num([cost]).)
-```
-
-**String comparison surprise** (expr value model). Not an error — comparisons are valid string-wise — but the previewer should *warn* when both operands parse as numbers yet differ from numeric order, since that is the A3 footgun in the wild.
-```
-note: [qty] < [reorder] compared "9" > "10" as text, not numbers. For numeric order,
-cast: num([qty]) < num([reorder]).
-```
-
-**Cast-failure tally** (semantics rule 6). Lenient, non-blocking; the standard voice for the warning shown after a run.
-```
-3 cells skipped in [amount] (not numeric): rows 12, 88, 415 — left unchanged.
+3 cell(s) skipped (not computable): rows 12, 88, 415 — left unchanged.
 ```
 
 **Ambiguous date** (expr-grammar, Dates). The one place a cast failure halts instead of tallying, because the failure is in the command and is identical on every row. Name both readings; do not pick one.
@@ -200,16 +145,8 @@ Say it: date([col], "DD/MM/YYYY")
 year() needs a date, and xled does not coerce one — cast first: year(date([col]))
 ```
 
-**`num()` on a date.** Excel would hand back a serial number; serials are the damage xled repairs (`intake-taxonomy.md`), not a value to give away. Name the four things the caller actually wanted.
+**`num()` on a date.** Excel would hand back a serial number; serials are damage xled repairs, not a value to give away. Name the four things the caller wanted.
 ```
 num() on a date has no meaning — xled has no serial numbers. Use year(), month(),
 day(), or subtract two dates for a count of days.
 ```
-
----
-
-## Refusals that are permanent
-
-1. **Column reorder is permanently "not supported"** (→ DuckDB). The invariant is *xled never reshapes the table*, and shape includes column *order*, not just row and column counts. Reorder is the camel's nose — "insert between" and "transpose" follow it — so order belongs to the file and the query engine; reordering for output is a one-line `SELECT`, and xled isn't an output formatter.
-
-2. **No bulk header transform in v1** (permanent, gentle). `rename` stays one-at-a-time; "lowercase all headers" is rejected rather than served by a new header *scope* that would let `s///` reach the name overlay. A header pseudo-address is real new grammar for a rare need. Revisit only if the Part C intake battery shows bulk header rewrites are common.

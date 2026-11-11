@@ -24,7 +24,7 @@ Every install line below ends with `xled --install-skill`. That installs the [Cl
 
 ### Debian and Ubuntu
 
-Add the [Excelano apt repository](https://excelano.com/apt/) once (one-time setup):
+Add the [Excelano apt repository](https://excelano.com/apt/) once:
 
 ```sh
 curl -fsSL https://excelano.com/apt/setup.sh | sudo sh
@@ -40,7 +40,7 @@ Both amd64 and arm64 packages ship with every release.
 
 ### Homebrew
 
-On macOS or Linux, tap and trust the repository once — Homebrew gates third-party taps behind explicit trust (one-time setup):
+On macOS or Linux, tap and trust the repository once, since Homebrew gates third-party taps behind explicit trust:
 
 ```sh
 brew tap excelano/tap
@@ -83,7 +83,7 @@ The binary is at `target/release/xled`.
 
 ## Use it from Claude Code
 
-xled was built for AI coding agents as much as for people, so the repo ships an official [Claude Code](https://docs.claude.com/en/docs/claude-code) skill under [`skills/xled/`](skills/xled/). It teaches an agent xled's addressing model, commands, the no-coercion type rules, and the hard boundary (never reshapes — reach for SQL/DuckDB instead), so it uses xled correctly rather than routing around it to a tool it already knows. The binary installs it:
+xled was built for AI coding agents as much as for people, so the repo ships an official [Claude Code](https://docs.claude.com/en/docs/claude-code) skill under [`skills/xled/`](skills/xled/). It teaches an agent xled's addressing model, commands, the no-coercion type rules, and the hard boundary (cell values only; reshaping, queries and joins go elsewhere), so it uses xled correctly rather than routing around it to a tool it already knows. The binary installs it:
 
 ```sh
 xled --install-skill
@@ -103,7 +103,7 @@ xled file.csv                # open the interactive REPL on a file
 
 In one-shot mode the data goes to stdout (clean, ready to pipe) and any advisory notices go to stderr, so `xled … file.csv > out.csv` is always safe. The REPL previews edits, keeps an undo stack, and writes only when you tell it to.
 
-Two flags follow sed and awk directly. `-i` (`--in-place`) edits the file where it sits instead of printing to stdout, and an attached suffix keeps the original as a backup, exactly as `sed -i.bak` does:
+Two flags follow sed and awk directly. `-i` (`--in-place`) edits the file where it sits instead of printing to stdout, and an attached suffix keeps the original as a backup, as `sed -i.bak` does:
 
 ```sh
 xled -i '[price] s/[$,]//g' file.csv       # rewrite file.csv in place
@@ -117,7 +117,7 @@ xled: wrote products.csv — 12 cells changed in [price]
 xled: products.csv rewritten unchanged — the address matched no cells, or the script wrote the values already there
 ```
 
-That second line is worth reading. A script whose address matched nothing still exits 0 and still rewrites the file, so a silent success would look exactly like a successful edit; `unchanged` is what tells you the header name was misspelled rather than the data being already clean.
+A script whose address matched nothing still exits 0 and still rewrites the file, so a silent success would look like a successful edit; `unchanged` is what tells you the header name was misspelled rather than the data being already clean.
 
 `--diff` shows which cells a script changes, one line per cell with its address, old value and new value. On its own it is a preview that leaves the file alone; with `-i` the file is written and the lines record what changed:
 
@@ -139,106 +139,20 @@ In-place editing is for scripts that change cells; run an inspect-only script (a
 
 A statement is `address command`, one per line. The address picks the cells; the command acts on them. Either part can stand alone: an address by itself shows those cells, and a command with no address acts on the whole table.
 
-## Addresses
+## The language
 
-Positional addresses are bare; names are bracketed. That one rule resolves every ambiguity a real header throws at you.
-
-| Address | Selects |
-|---|---|
-| `C` | the column at letter C (past Z too: `AA`, `BC`, `CQ`) |
-| `[price]` | the column named `price` — exact, case-sensitive |
-| `3` | row 3 |
-| `2:4` | rows 2 through 4 |
-| `B2:C3` | the rectangle from B2 to C3 |
-| `[price (USD)]` | a name containing spaces, slashes, or parens — brackets quote it |
-| `/active/` | every cell matching the regex |
-| `[status]~/active/` | cells in `[status]` matching the regex |
-| `/active/i [status]` | combine row-select and column to a scoped set |
-| `num([qty]) < num([reorder])` | rows where a comparison holds |
-| `regexmatch([sku], "^TL-")` | rows where a bool-valued function is true |
-
-Brackets disambiguate the hard cases for free: the column *named* `B` is `[B]` while the column *at* letter B is `B`, and the header `2024` is `[2024]` while row 2024 is `2024`. Names match exactly — `[userId]` is not `[userid]` — because a header is data and silent case-folding is the same class of surprise as dropping a leading zero. Add the `i` flag to a regex for a case-insensitive match when you want one.
-
-The last two rows are the same kind of atom: a test evaluated per row, selecting the ones it answers true for. A function that already returns a bool needs no `== true` after it. There is deliberately no `and` or `or` to chain two of them — one condition per address, and a real multi-predicate filter is a query, so run a second xled command on the result or reach for xql.
-
-## Commands
-
-| Command | Does |
-|---|---|
-| `s/re/replacement/flags` | sed substitution over the addressed cells (`g`, `i`, an occurrence number, `\1`–`\9`, `&`, `\U \L \u \l \E`) |
-| `= expr` | compute a value into one column, creating it if new |
-| `del` | delete whole rows or whole columns |
-| `crop` | reduce the buffer to one rectangle (carve a table out of junk) |
-| `N header` | promote row N to the column-name header |
-| `rename newname` | rename a header in place (takes the rest of the line, no quoting needed) |
-| `fill` / `fill down` | fill blank cells from the value above (merged-cell artifacts) |
-| `drop blanks [rows\|cols]` | trim empty edge rows and columns |
-| `describe` | advisory region report — preamble, blank edges, suspected header and total rows; never mutates |
-| `show` | print the addressed cells (the default when a command is omitted) |
-
-Each command enforces a scope contract. `= expr` writes exactly one column; `del` takes whole rows xor whole columns, never a partial rectangle; `header` and `rename` take one row or one column. When a command and an address disagree, xled refuses with a correction that names the right form rather than guessing.
-
-## Reading values
-
-A read prints CSV by default, header and all, which is the right thing when the result is a table. Two flags reshape it for scripting. `--raw` drops the header and the CSV quoting and prints just the addressed values, one per line, so a single-cell lookup is the value and nothing else:
-
-```sh
-xled --raw '[status] 12' file.csv      # -> approved
-owner=$(xled --raw '[owner] 3' file.csv)
-```
-
-`--number` prefixes each row with its logical row number — the number xled itself addresses by. That matters because a cell may hold an embedded newline: piping a column into `nl` counts physical lines and drifts out of sync for every row after the first multiline value, while `--number` stays keyed to the real row:
-
-```sh
-xled --number '[description]' file.csv    # a reliable row-number -> value map
-xled --raw --number '[description]' file.csv
-```
-
-`--count` answers how many rows an address selected instead of printing them — `grep -c` for an address. It counts rows, de-duplicated, so a match spanning three columns of one row counts once:
-
-```sh
-xled --count '/active/' file.csv          # -> 42
-[ "$(xled --count '/error/' log.csv)" -gt 0 ] && echo "found some"
-```
-
-Reach for it instead of piping to `wc -l`, which counts physical lines and so overcounts any table holding a cell with a newline in it — the same drift `--number` exists to correct. An address that matches nothing counts 0 and exits 0: the empty result is the answer, not a failure. Because there is nothing to format about a single integer, `--count` refuses to combine with `--raw` or `--number` rather than letting one of them quietly win.
-
-All three shape the output of a read (a bare address or `show`); on a script that changes cells they have nothing to report on and are ignored. There is deliberately no `row()` function inside a compute — a computed cell sees values, not its own position — so `--number` is the one way to surface row numbers.
-
-## Expressions
-
-`= expr` is the compute layer. Values are one of four types — string, number, bool, date — and there is **no automatic coercion**: arithmetic requires numbers, and you cast explicitly with `num()`, `bool()`, or `date()`. That is what keeps leading zeros and long identifiers intact. A cast that fails is non-halting: the cell is left untouched and a tally tells you how many were skipped.
+Positional addresses are bare and names are bracketed: `C` is the column at letter C, `[price]` the column named price, `2:4` a row span, `B2:C3` a rectangle, `/active/` the rows where any cell matches, and `num([qty]) < num([reorder])` the rows where one comparison holds. A space intersects two addresses and a comma unions them, as in Excel. The commands are sed's `s///`, an awk-style `= expr` that computes one column, and a few structural words for carving a table out of a messy export: `crop`, `header`, `drop blanks`, `fill`, `del`, `rename`, `describe` and `show`.
 
 ```sh
 [total]  = round(num([price]) * [qty], 2)        # arithmetic, money-rounded
-[full]   = [first] & " " & [last]                # concatenation
 [name]   = proper(trim([name]))                  # tidy casing and stray spaces
 [zip]    = lpad([zip], 5, "0")                   # restore a stripped leading zero
 [hired]  = date([hired], "DD/MM/YYYY")           # normalize a date column to ISO
-[days]   = today() - date([hired])               # tenure, in days
-[low]    = num([qty]) < num([reorder])           # a boolean column
-[owner]  = default([owner], "Unassigned")        # fill blanks
-[flag]   = if(num([qty]) < num([reorder]), "REORDER", "ok")
 ```
 
-The library groups into text handling — `len left right mid substr trim ltrim rtrim lpad rpad` for measuring, slicing, stripping whitespace, and padding to a fixed width — regex — `regexreplace regexmatch`, which is how a pattern derives *another* column, since `s///` can only write back into the column it reads — case-folding — `upper lower proper`, the same Unicode dialect as `s///`'s `\U`/`\L` so the two never disagree — numbers — `round abs floor ceil mod min max`, and `fixed`, Excel's `FIXED`, for text with set decimals (`fixed([amt], 2, true)` is `1234.50`) — dates — `date text year month day weekday today` — and casts and logic — `num bool default coalesce if in`. `in([org], "APP", "CAM", "CES")` is set membership, and it compares its members as literals rather than compiling them: the alternation it replaces matches inside `APPLE` and `SCAM` when the anchors are forgotten, and treats a member like `R+D` as a pattern when they are not, so the one value you are testing for is the one that fails. Padding never truncates: `lpad` on a value already at or past the width returns it unchanged, because dropping characters is the same betrayal as coercion. `mod` takes the dividend's sign (`mod(-3, 5)` is `-3`), following awk rather than Excel, and a divide-by-zero leaves the cell untouched. Comparisons are string-wise unless both sides are cast with `num()` — `"9" > "10"` is true lexically, which is *not* numeric order — because auto-numifying would smuggle back exactly the surprises the stringly model exists to prevent.
+Two rules shape the expression language. There is no automatic coercion: arithmetic needs `num()`, and comparisons are string-wise unless both sides are cast, which is what keeps leading zeros and long IDs intact. And xled never guesses DD/MM versus MM/DD: a bare `date()` reads ISO only, and a value that another layout could read stops the run with the readings named.
 
-Numbers serialize at full `f64` precision, so any currency or fixed-decimal column must be wrapped in `round(…, d)`; xled never rounds on write, because inventing precision the user didn't ask for is the same betrayal as silent coercion.
-
-### Dates
-
-Dates are a real type, and they always write as ISO 8601. That is what lets a single cast normalize a column — `[hired] = date([hired], "DD/MM/YYYY")` needs no formatting call — and it means the result still sorts correctly anywhere downstream that treats it as text. Format tokens are Excel's (`YYYY MMMM MMM MM M DDDD DDD DD D`), not strftime's, because that is the dialect the audience already knows.
-
-The rule worth knowing before you start is that **xled never guesses DD/MM versus MM/DD**. A bare `date([col])` reads ISO and nothing else — including the basic form `20240304` and a timestamp truncated to its date. Anything else has to be spelled out, and if you don't, the error names the readings rather than picking one:
-
-```
-03/04/2024 is ambiguous: both DD/MM/YYYY and MM/DD/YYYY parse it.
-Say which one: date([col], "DD/MM/YYYY")
-```
-
-That halt is deliberate and it is different from a skipped cell. A value no layout can read is bad data: the cell is left alone and tallied, like any other cast failure. A value that some layout *can* read means the command is under-specified, which is wrong on every row equally — so it stops once instead of burying the fix in a warning count.
-
-Subtracting two dates gives a number of days; adding or subtracting a number gives a date. `year` `month` `day` pull components out for grouping, `weekday` returns the ISO day of week (1 = Monday, not Excel's 1 = Sunday), `text(d, fmt)` renders a date back out under any Excel format, and `today()` is fixed once for the whole run so a long job can't straddle midnight and stamp two different days into one column. Month arithmetic is deliberately absent: "January 31 plus one month" has no correct answer, only policies, and picking one quietly would be the same mistake as guessing the layout.
+The full address grammar, each command's scope contract, the function library, and the `--raw`, `--number` and `--count` flags for reading values are in the [reference](skills/xled/reference.md).
 
 ## Input encoding
 
@@ -246,7 +160,7 @@ xled expects UTF-8. An Excel "Save as CSV UTF-8" BOM at the start of the file is
 
 ## What xled does not do
 
-Query, aggregate, group, and sort are out of scope — that is [xql](https://github.com/excelano/xql) territory, and a join is a full SQL engine's — and xled's error messages point you there by name. Reshaping is also out, and has its own tool: splitting one cell into several columns, unpivoting a wide export, pivoting, exploding a delimited cell, transposing a sideways table, merging columns — all of that is [xshape](https://github.com/excelano/xshape). xled carves *a* rectangle and rewrites cells within the table's existing shape; it is not a splitter and not a spreadsheet.
+Query, aggregate, group, and sort are out of scope; that is [xql](https://github.com/excelano/xql) territory, and a join belongs to a SQL engine such as DuckDB. Reshaping is also out, and has its own tool: splitting one cell into several columns, unpivoting a wide export, pivoting, exploding a delimited cell, transposing a sideways table, merging columns — all of that is [xshape](https://github.com/excelano/xshape). When a script asks for one of these, xled refuses and names a command that does it; several of those refusals give a DuckDB query. xled carves *a* rectangle and rewrites cells within the table's existing shape; it is not a splitter and not a spreadsheet.
 
 ## Implementation
 

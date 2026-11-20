@@ -244,6 +244,21 @@ fn a_catalogued_verb_is_refused_by_name_not_read_as_a_column() {
 }
 
 #[test]
+fn a_refusal_names_the_family_tool_that_does_the_job() {
+    for (verb, tool) in [
+        ("sort", "xql file.csv"),
+        ("and", "xql file.csv"),
+        ("aggregate", "xql file.csv"),
+        ("split", "xshape split"),
+        ("unpivot", "xshape unpivot"),
+    ] {
+        let msg = parser::parse_program(verb).err().unwrap().to_string();
+        assert!(msg.contains(tool), "{verb} should name {tool}: {msg}");
+        assert!(!msg.contains("duckdb"), "{verb} should not route to DuckDB: {msg}");
+    }
+}
+
+#[test]
 fn a_lone_column_past_the_width_is_an_error_not_an_empty_selection() {
     // products.csv is four columns wide; PIVOT is not one of them.
     let mut buf = io::read_str(PRODUCTS, b',', true).unwrap();

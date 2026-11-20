@@ -19,7 +19,7 @@ The `<verb>` tells the user, in one word, what *kind* of dead end they hit and t
 | Verb | Means | Goes to |
 |---|---|---|
 | not in **scope** | a different tool's job — query, not edit | xql, DuckDB, or upstream |
-| not **supported** | reshaping — changes the table's shape | in-place `s///`, or DuckDB |
+| not **supported** | reshaping — changes the table's shape | in-place `s///`, or xshape |
 
 A further case is *not* a boundary and does not use this shape: a **correction**, where the user wrote a legal form that means something other than they intended. That gets a different voice — name what they wrote, name what it does, then give the form for what they meant:
 
@@ -40,23 +40,23 @@ xled edits cells; it does not answer questions about the table. The line is filt
 **Sort.** xled never reorders rows — order is the file's, and a save preserves it.
 ```
 sort is not in xled's scope: xled edits cells in place and never reorders rows.
-Sort upstream and pipe in — sort -t, -k3 file.csv | xled '…' — or let the
-query engine do it: duckdb -c "FROM file.csv ORDER BY price".
+Sort in the query engine and pipe in —
+xql file.csv --mode csv --exec "SELECT * ORDER BY price" | xled '…'.
 ```
 
 **Multi-condition filter (`and` / `or` / `not`-as-logic).** One comparison is a legal address; the first combinator is the wall. This is the same boundary the address grammar draws (`ebnf.md`, the combinator wall) and the same one expr draws (`expr-grammar.md`, no boolean operators).
 ```
 combining conditions with and/or is not in xled's scope: an address selects rows
 to edit, it is not a query. For one more condition, run a second xled command on
-the result; for a real predicate, query first — xql 'SELECT * WHERE qty < reorder
-AND status = "active"' file.csv | xled '…'.
+the result; for a real predicate, query first — xql file.csv --mode csv
+--exec "SELECT * WHERE qty < reorder AND status = 'active'" | xled '…'.
 ```
 
 **Aggregate / group-by.** expr computes one value per row and never across rows.
 ```
 aggregation (sum / count / group) is not in xled's scope: expr produces one value
 per row, never a value across rows. Aggregate in the query engine —
-duckdb -c "FROM file.csv SELECT dept, sum(cost) GROUP BY dept".
+xql file.csv --exec "SELECT dept, sum(cost) GROUP BY dept".
 ```
 
 **Join.** One buffer, no cross-file matching.
@@ -73,7 +73,7 @@ generates new ones. Append upstream — printf 'a,b,c\n' >> file.csv — or buil
 the rows in the query engine: duckdb -c "FROM a.csv UNION ALL FROM b.csv".
 ```
 
-### Reshaping → upstream, or `s///` in place
+### Reshaping → xshape, or `s///` in place
 
 xled carves one rectangular table out of junk (`crop`, `header`, `drop blanks`, `fill down`) and cleans its cells. It does not change the carved table's *shape*: its row count by generating rows, its column count by splitting, or its column *order*. Reshaping is xshape's job. Permanent, but splitting has a real in-place rewrite for the common case.
 
@@ -81,14 +81,15 @@ xled carves one rectangular table out of junk (`crop`, `header`, `drop blanks`, 
 ```
 splitting one cell into several columns is not supported: assignment writes one
 column and never widens the table. For the common two-part case, rearrange in
-place with s/// — [name] s/(.*), (.*)/\2 \1/ — or split upstream:
-duckdb -c "FROM file.csv SELECT split_part(name, ', ', 1) AS last, …".
+place with s/// — [name] s/(.*), (.*)/\2 \1/ — or split it with xshape:
+xshape split --col '[name]' --sep ', ' --into last,first file.csv.
 ```
 
 **Unpivot.** A shape change.
 ```
 unpivoting (wide → long) is not supported: it changes the table's shape, which
-xled never does. Reshape in the query engine — duckdb -c "UNPIVOT file.csv …".
+xled never does. Reshape with xshape —
+xshape unpivot --cols '[q1]:[q4]' --into quarter,value file.csv.
 ```
 
 ### Corrections — legal form, unintended meaning

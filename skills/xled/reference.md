@@ -215,9 +215,8 @@ rows at the edges.
 ## Error vocabulary
 
 Each refusal names where the capability lives rather than failing bare. **not in
-scope** covers a query or a join: `and`/`or` names an xql query to run first, while
-`sort`, aggregation (`sum`, `count`, `group`), `join` and `append` name a `sort` pipe,
-a DuckDB query or an upstream step. **not supported** covers a reshape: `split` shows
-the in-place `s///` rearrangement and a DuckDB `split_part`, and `unpivot` a DuckDB
-`UNPIVOT`; xshape is the family's tool for both. A scope-contract violation (a partial
+scope** covers a query or a join: `sort`, `and`/`or` and aggregation (`sum`, `count`,
+`group`) name an xql query, while `join` and `append` name a DuckDB query or an
+upstream step. **not supported** covers a reshape: `split` shows the in-place `s///`
+rearrangement and an `xshape split`, and `unpivot` an `xshape unpivot`. A scope-contract violation (a partial
 `del`, a multi-column `=`) is a correction that names the right form.

@@ -145,7 +145,7 @@ xled expects UTF-8. An Excel "Save as CSV UTF-8" BOM at the start of the file is
 
 ## What xled does not do
 
-Query, aggregate, group, and sort are out of scope; that is [xql](https://github.com/excelano/xql) territory, and a join belongs to a SQL engine such as DuckDB. Reshaping is also out, and has its own tool: splitting one cell into several columns, unpivoting a wide export, pivoting, exploding a delimited cell, transposing a sideways table, merging columns — all of that is [xshape](https://github.com/excelano/xshape). When a script asks for one of these, xled refuses and names a command that does it; several of those refusals give a DuckDB query. xled carves *a* rectangle and rewrites cells within the table's existing shape; it is not a splitter and not a spreadsheet.
+Query, aggregate, group, and sort are out of scope; that is [xql](https://github.com/excelano/xql) territory, and a join belongs to a SQL engine such as DuckDB. Reshaping is also out, and has its own tool: splitting one cell into several columns, unpivoting a wide export, pivoting, exploding a delimited cell, transposing a sideways table, merging columns — all of that is [xshape](https://github.com/excelano/xshape). When a script asks for one of these, xled refuses and names a command that does it. xled carves *a* rectangle and rewrites cells within the table's existing shape; it is not a splitter and not a spreadsheet.
 
 ## Implementation
 

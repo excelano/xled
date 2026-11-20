@@ -47,21 +47,21 @@ fn refusal(word: &str) -> Option<XledError> {
     let e = match word {
         "sort" => XledError::NotInScope(
             "sort is not in xled's scope: xled edits cells in place and never reorders rows. \
-             Sort upstream and pipe in — sort -t, -k3 file.csv | xled '…' — or let the \
-             query engine do it: duckdb -c \"FROM file.csv ORDER BY price\"."
+             Sort in the query engine and pipe in — \
+             xql file.csv --mode csv --exec \"SELECT * ORDER BY price\" | xled '…'."
                 .into(),
         ),
         "and" | "or" | "not" => XledError::NotInScope(
             "combining conditions with and/or is not in xled's scope: an address selects rows \
              to edit, it is not a query. For one more condition, run a second xled command on \
-             the result; for a real predicate, query first — xql 'SELECT * WHERE qty < reorder \
-             AND status = \"active\"' file.csv | xled '…'."
+             the result; for a real predicate, query first — xql file.csv --mode csv \
+             --exec \"SELECT * WHERE qty < reorder AND status = 'active'\" | xled '…'."
                 .into(),
         ),
         "aggregate" | "group" | "sum" | "count" => XledError::NotInScope(
             "aggregation (sum / count / group) is not in xled's scope: expr produces one value \
              per row, never a value across rows. Aggregate in the query engine — \
-             duckdb -c \"FROM file.csv SELECT dept, sum(cost) GROUP BY dept\"."
+             xql file.csv --exec \"SELECT dept, sum(cost) GROUP BY dept\"."
                 .into(),
         ),
         "join" => XledError::NotInScope(
@@ -73,13 +73,14 @@ fn refusal(word: &str) -> Option<XledError> {
         "split" => XledError::NotSupported(
             "splitting one cell into several columns is not supported: assignment writes one \
              column and never widens the table. For the common two-part case, rearrange in \
-             place with s/// — [name] s/(.*), (.*)/\\2 \\1/ — or split upstream: \
-             duckdb -c \"FROM file.csv SELECT split_part(name, ', ', 1) AS last, …\"."
+             place with s/// — [name] s/(.*), (.*)/\\2 \\1/ — or split it with xshape: \
+             xshape split --col '[name]' --sep ', ' --into last,first file.csv."
                 .into(),
         ),
         "unpivot" => XledError::NotSupported(
             "unpivoting (wide → long) is not supported: it changes the table's shape, which \
-             xled never does. Reshape in the query engine — duckdb -c \"UNPIVOT file.csv …\"."
+             xled never does. Reshape with xshape — \
+             xshape unpivot --cols '[q1]:[q4]' --into quarter,value file.csv."
                 .into(),
         ),
         "append" => XledError::NotInScope(
